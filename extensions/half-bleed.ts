@@ -1,4 +1,5 @@
 import {
+	AssistantMessageComponent,
 	BranchSummaryMessageComponent,
 	CompactionSummaryMessageComponent,
 	CustomMessageComponent,
@@ -19,6 +20,7 @@ const PANEL_BACKGROUNDS = new Set([
 ]);
 
 const ORIGINAL_BG = Symbol.for("will.pi.half-bleed.original-bg");
+const ORIGINAL_FG = Symbol.for("will.pi.half-bleed.original-fg");
 const ORIGINAL_RENDER = Symbol.for("will.pi.half-bleed.original-render");
 const LEFT_EDGE = "▐"; // right half block
 const RIGHT_EDGE = "▌"; // left half block
@@ -93,6 +95,24 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	};
 }
 
+function restoreRemovedAssistantExperiment(): void {
+	// Older revisions patched assistant rendering and Theme.fg(). `/reload`
+	// keeps those prototypes alive, so explicitly restore Pi's originals.
+	const assistant = AssistantMessageComponent.prototype as Renderable & Record<PropertyKey, unknown>;
+	const originalRender = assistant[ORIGINAL_RENDER] as Renderable["render"] | undefined;
+	if (originalRender) {
+		assistant.render = originalRender;
+		delete assistant[ORIGINAL_RENDER];
+	}
+
+	const theme = Theme.prototype as unknown as Record<PropertyKey, unknown> & { fg: Theme["fg"] };
+	const originalFg = theme[ORIGINAL_FG] as Theme["fg"] | undefined;
+	if (originalFg) {
+		theme.fg = originalFg;
+		delete theme[ORIGINAL_FG];
+	}
+}
+
 function patchPanelBackgrounds(): void {
 	const target = Theme.prototype as unknown as Record<PropertyKey, unknown> & {
 		bg: Theme["bg"];
@@ -121,6 +141,7 @@ function patchPanelBackgrounds(): void {
 }
 
 export default function (_pi: ExtensionAPI): void {
+	restoreRemovedAssistantExperiment();
 	patchPanelBackgrounds();
 	for (const ComponentClass of PANEL_COMPONENTS) patchPanelComponent(ComponentClass);
 }
