@@ -23,9 +23,9 @@ const ORIGINAL_RENDER = Symbol.for("will.pi.half-bleed.original-render");
 const LEFT_EDGE = "▐"; // right half block
 const RIGHT_EDGE = "▌"; // left half block
 const BLANK_PANEL_LINE = /^▐ *▌$/u;
+const BLANK_LEFT_EDGE_LINE = /^▐ *$/u;
 
-const PANEL_COMPONENTS = [
-	UserMessageComponent,
+const TWO_SIDED_PANEL_COMPONENTS = [
 	ToolExecutionComponent,
 	CustomMessageComponent,
 	BranchSummaryMessageComponent,
@@ -42,13 +42,15 @@ type Renderable = {
 	render(width: number): string[];
 };
 
-function chamferLine(line: string, edge: "top" | "bottom"): string {
+function chamferLine(line: string, edge: "top" | "bottom", bleedRight: boolean): string {
 	const plain = stripTerminalSequences(line);
+	const blankLinePattern = bleedRight ? BLANK_LEFT_EDGE_LINE : BLANK_PANEL_LINE;
 	const left = line.indexOf(LEFT_EDGE);
 	const right = line.lastIndexOf(RIGHT_EDGE);
-	if (!BLANK_PANEL_LINE.test(plain) || left < 0 || right <= left) return line;
+	if (!blankLinePattern.test(plain) || left < 0 || (!bleedRight && right <= left)) return line;
 
-	const middleWidth = visibleWidth(plain) - 2;
+	const horizontalEdges = bleedRight ? 1 : 2;
+	const middleWidth = visibleWidth(plain) - horizontalEdges;
 
 	// Symbols for Legacy Computing divides a cell into 2×3 sextants. The edge
 	// fills are exactly one third of a row; the corner glyphs are filled
@@ -60,13 +62,20 @@ function chamferLine(line: string, edge: "top" | "bottom"): string {
 
 	// Keep the existing OSC markers and color setup before the first visible
 	// cell, plus the ANSI cleanup after the last one.
-	return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + rightCorner + line.slice(right + 1);
+	if (!bleedRight) {
+		return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + rightCorner + line.slice(right + 1);
+	}
+
+	const backgroundReset = line.lastIndexOf("\x1b[49m");
+	if (backgroundReset <= left) return line;
+	return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + "\x1b[39m" + line.slice(backgroundReset);
 }
 
-function addVerticalHalfCells(lines: string[]): string[] {
+function addVerticalHalfCells(lines: string[], bleedRight: boolean): string[] {
+	const blankLinePattern = bleedRight ? BLANK_LEFT_EDGE_LINE : BLANK_PANEL_LINE;
 	const blankPanelLines: number[] = [];
 	for (let index = 0; index < lines.length; index++) {
-		if (BLANK_PANEL_LINE.test(stripTerminalSequences(lines[index]))) blankPanelLines.push(index);
+		if (blankLinePattern.test(stripTerminalSequences(lines[index]))) blankPanelLines.push(index);
 	}
 	if (blankPanelLines.length < 2) return lines;
 
@@ -75,12 +84,12 @@ function addVerticalHalfCells(lines: string[]): string[] {
 	if (top === bottom) return lines;
 
 	const result = [...lines];
-	result[top] = chamferLine(result[top], "top");
-	result[bottom] = chamferLine(result[bottom], "bottom");
+	result[top] = chamferLine(result[top], "top", bleedRight);
+	result[bottom] = chamferLine(result[bottom], "bottom", bleedRight);
 	return result;
 }
 
-function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
+function patchPanelComponent(ComponentClass: { prototype: Renderable }, bleedRight = false): void {
 	const target = ComponentClass.prototype as Renderable & Record<PropertyKey, unknown>;
 	const original = (target[ORIGINAL_RENDER] as Renderable["render"] | undefined) ?? target.render;
 
@@ -89,7 +98,7 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	}
 
 	target.render = function (this: Renderable, width: number): string[] {
-		return addVerticalHalfCells(original.call(this, width));
+		return addVerticalHalfCells(original.call(this, width), bleedRight);
 	};
 }
 
@@ -112,15 +121,20 @@ function patchPanelBackgrounds(): void {
 		if (background === "\x1b[49m") return original.call(this, color, text);
 
 		const foreground = foregroundAnsi(this.colors[color], this.getColorMode());
-		const middle = text.slice(1, -1);
 
-		// Half-cell side edges are supported reliably by terminal fonts and split
-		// the original padding evenly between exterior margin and interior space.
+		// User messages keep the shaped left edge but run uninterrupted to the
+		// terminal's right edge. Other transcript panels retain both shaped sides.
+		if (color === "userMessageBg") {
+			return `\x1b[49m${foreground}${LEFT_EDGE}\x1b[39m${background}${text.slice(1)}\x1b[49m`;
+		}
+
+		const middle = text.slice(1, -1);
 		return `\x1b[49m${foreground}${LEFT_EDGE}\x1b[39m${background}${middle}\x1b[49m${foreground}${RIGHT_EDGE}\x1b[39m`;
 	} as Theme["bg"];
 }
 
 export default function (_pi: ExtensionAPI): void {
 	patchPanelBackgrounds();
-	for (const ComponentClass of PANEL_COMPONENTS) patchPanelComponent(ComponentClass);
+	patchPanelComponent(UserMessageComponent, true);
+	for (const ComponentClass of TWO_SIDED_PANEL_COMPONENTS) patchPanelComponent(ComponentClass);
 }

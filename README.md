@@ -8,7 +8,8 @@ User-level customizations for [Pi](https://github.com/earendil-works/pi).
 
 Makes transcript panels less full-bleed without changing their terminal-cell layout:
 
-- half-cell side margins using standard block elements;
+- user-message panels have a shaped half-cell left edge and remain full-bleed on the right;
+- other transcript panels have half-cell margins on both sides;
 - one-third-row top and bottom padding using Unicode sextants;
 - small diagonal corner clips using Symbols for Legacy Computing.
 
