@@ -52,13 +52,12 @@ function chamferLine(line: string, edge: "top" | "bottom"): string {
 
 	const middleWidth = visibleWidth(plain) - 2;
 
-	// Symbols for Legacy Computing divides a cell into 2×3 sextants. The edge
-	// fills are exactly one third of a row; the corner glyphs are filled
-	// triangles whose legs are half a cell wide and one third of a cell tall.
-	// In a typical terminal cell that produces a roughly 5 px diagonal clip.
-	const fill = edge === "top" ? "🬭" : "🬂"; // sextants 56 (bottom third) / 12 (top third)
-	const leftCorner = edge === "top" ? "🭇" : "🭢";
-	const rightCorner = edge === "top" ? "🬼" : "🭗";
+	// Standard 2×2 quadrant blocks trade the sharper sextant diagonals for a
+	// softer, widely supported faux-round corner. The half-row cap also pairs
+	// symmetrically with the half-cell side edges.
+	const fill = edge === "top" ? "▄" : "▀";
+	const leftCorner = edge === "top" ? "▗" : "▝";
+	const rightCorner = edge === "top" ? "▖" : "▘";
 
 	// Keep the existing OSC markers and color setup before the first visible
 	// cell, plus the ANSI cleanup after the last one.

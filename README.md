@@ -9,8 +9,8 @@ User-level customizations for [Pi](https://github.com/earendil-works/pi).
 Makes transcript panels less full-bleed without changing their terminal-cell layout:
 
 - half-cell side margins using standard block elements;
-- one-third-row top and bottom padding using Unicode sextants;
-- small diagonal corner clips using Symbols for Legacy Computing.
+- half-row top and bottom caps;
+- faux-rounded corners using standard quadrant blocks.
 
 Install it as a user extension:
 
@@ -21,4 +21,4 @@ ln -s "$HOME/dev/pi-customizations/extensions/half-bleed.ts" \
 
 Then run `/reload` inside Pi.
 
-The sextant and diagonal glyphs require a terminal font with support for the Unicode Symbols for Legacy Computing block.
+The panel geometry uses widely supported Unicode Block Elements.
