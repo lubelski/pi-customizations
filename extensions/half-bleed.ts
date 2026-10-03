@@ -9,7 +9,7 @@ import {
 	UserMessageComponent,
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
-import { foregroundAnsi, stripTerminalSequences } from "@earendil-works/pi-tui";
+import { foregroundAnsi, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
 const PANEL_BACKGROUNDS = new Set([
 	"userMessageBg",
@@ -25,7 +25,6 @@ const ORIGINAL_RENDER = Symbol.for("will.pi.half-bleed.original-render");
 const LEFT_EDGE = "▐"; // right half block
 const RIGHT_EDGE = "▌"; // left half block
 const BLANK_PANEL_LINE = /^▐ *▌$/u;
-const OSC_SEQUENCE = /\x1b\][^\x07]*(?:\x07|\x1b\\)/gu;
 
 const PANEL_COMPONENTS = [
 	UserMessageComponent,
@@ -45,11 +44,24 @@ type Renderable = {
 	render(width: number): string[];
 };
 
-function extractOscSequences(line: string): string {
-	return [...line.matchAll(OSC_SEQUENCE)].map((match) => match[0]).join("");
+function chamferLine(line: string, edge: "top" | "bottom"): string {
+	const plain = stripTerminalSequences(line);
+	const left = line.indexOf(LEFT_EDGE);
+	const right = line.lastIndexOf(RIGHT_EDGE);
+	if (!BLANK_PANEL_LINE.test(plain) || left < 0 || right <= left) return line;
+
+	const middleWidth = visibleWidth(plain) - 2;
+
+	// Sextants provide the exact rectangular intersection requested: half a
+	// cell horizontally and one third of a row vertically, with no diagonal.
+	const fill = edge === "top" ? "🬭" : "🬂"; // lower third / upper third
+	const leftCorner = edge === "top" ? "🬞" : "🬁"; // sextant 6 / sextant 2
+	const rightCorner = edge === "top" ? "🬏" : "🬀"; // sextant 5 / sextant 1
+
+	return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + rightCorner + line.slice(right + 1);
 }
 
-function removeVerticalPadding(lines: string[]): string[] {
+function addVerticalThirdCells(lines: string[]): string[] {
 	const blankPanelLines: number[] = [];
 	for (let index = 0; index < lines.length; index++) {
 		if (BLANK_PANEL_LINE.test(stripTerminalSequences(lines[index]))) blankPanelLines.push(index);
@@ -60,16 +72,9 @@ function removeVerticalPadding(lines: string[]): string[] {
 	const bottom = blankPanelLines.at(-1)!;
 	if (top === bottom) return lines;
 
-	const topOsc = extractOscSequences(lines[top]);
-	const bottomOsc = extractOscSequences(lines[bottom]);
-	const result = lines.filter((_line, index) => index !== top && index !== bottom);
-	if (result.length === 0) return result;
-
-	if (result.length === 1) result[0] = topOsc + bottomOsc + result[0];
-	else {
-		result[0] = topOsc + result[0];
-		result[result.length - 1] = bottomOsc + result[result.length - 1];
-	}
+	const result = [...lines];
+	result[top] = chamferLine(result[top], "top");
+	result[bottom] = chamferLine(result[bottom], "bottom");
 	return result;
 }
 
@@ -82,7 +87,7 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	}
 
 	target.render = function (this: Renderable, width: number): string[] {
-		return removeVerticalPadding(original.call(this, width));
+		return addVerticalThirdCells(original.call(this, width));
 	};
 }
 
