@@ -1,4 +1,5 @@
 import {
+	AssistantMessageComponent,
 	BranchSummaryMessageComponent,
 	CompactionSummaryMessageComponent,
 	CustomMessageComponent,
@@ -19,6 +20,7 @@ const PANEL_BACKGROUNDS = new Set([
 ]);
 
 const ORIGINAL_BG = Symbol.for("will.pi.half-bleed.original-bg");
+const ORIGINAL_FG = Symbol.for("will.pi.half-bleed.original-fg");
 const ORIGINAL_RENDER = Symbol.for("will.pi.half-bleed.original-render");
 const LEFT_EDGE = "▐"; // right half block
 const RIGHT_EDGE = "▌"; // left half block
@@ -41,6 +43,8 @@ type PatchableTheme = Theme & {
 type Renderable = {
 	render(width: number): string[];
 };
+
+let activeTheme: PatchableTheme | undefined;
 
 function chamferLine(line: string, edge: "top" | "bottom", bleedRight: boolean): string {
 	const plain = stripTerminalSequences(line);
@@ -105,20 +109,31 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }, bleedRig
 function patchPanelBackgrounds(): void {
 	const target = Theme.prototype as unknown as Record<PropertyKey, unknown> & {
 		bg: Theme["bg"];
+		fg: Theme["fg"];
 	};
-	const original = (target[ORIGINAL_BG] as Theme["bg"] | undefined) ?? target.bg;
+	const originalBg = (target[ORIGINAL_BG] as Theme["bg"] | undefined) ?? target.bg;
+	const originalFg = (target[ORIGINAL_FG] as Theme["fg"] | undefined) ?? target.fg;
 
 	if (!Object.hasOwn(target, ORIGINAL_BG)) {
-		Object.defineProperty(target, ORIGINAL_BG, { value: original, configurable: true });
+		Object.defineProperty(target, ORIGINAL_BG, { value: originalBg, configurable: true });
+	}
+	if (!Object.hasOwn(target, ORIGINAL_FG)) {
+		Object.defineProperty(target, ORIGINAL_FG, { value: originalFg, configurable: true });
 	}
 
+	target.fg = function (this: PatchableTheme, color: Parameters<Theme["fg"]>[0], text: string): string {
+		activeTheme = this;
+		return originalFg.call(this, color, text);
+	} as Theme["fg"];
+
 	target.bg = function (this: PatchableTheme, color: Parameters<Theme["bg"]>[0], text: string): string {
+		activeTheme = this;
 		if (!PANEL_BACKGROUNDS.has(color) || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
-			return original.call(this, color, text);
+			return originalBg.call(this, color, text);
 		}
 
 		const background = this.getBgAnsi(color);
-		if (background === "\x1b[49m") return original.call(this, color, text);
+		if (background === "\x1b[49m") return originalBg.call(this, color, text);
 
 		const foreground = foregroundAnsi(this.colors[color], this.getColorMode());
 
@@ -133,8 +148,51 @@ function patchPanelBackgrounds(): void {
 	} as Theme["bg"];
 }
 
+function assistantPanel(lines: string[], width: number): string[] {
+	const currentTheme = activeTheme;
+	if (!currentTheme || lines.length === 0 || width < 2) return lines;
+
+	const background = currentTheme.getBgAnsi("toolPendingBg");
+	if (background === "\x1b[49m") return lines;
+	const foreground = foregroundAnsi(currentTheme.colors.toolPendingBg, currentTheme.getColorMode());
+
+	const topFill = "🬭".repeat(width - 1);
+	const bottomFill = "🬂".repeat(width - 1);
+	const result = [...lines];
+	const firstPlain = stripTerminalSequences(result[0]);
+	const topEdge = `\x1b[49m${foreground}${topFill}🬼\x1b[39m`;
+	if (firstPlain.length === 0) result[0] += topEdge;
+	else result.unshift(topEdge);
+
+	for (let index = 1; index < result.length; index++) {
+		const line = result[index];
+		if (visibleWidth(line) !== width || !line.endsWith(" ")) {
+			result[index] = `${background}${line}\x1b[49m`;
+			continue;
+		}
+		result[index] = `${background}${line.slice(0, -1)}\x1b[49m${foreground}${RIGHT_EDGE}\x1b[39m`;
+	}
+
+	result.push(`\x1b[49m${foreground}${bottomFill}🭗\x1b[39m`);
+	return result;
+}
+
+function patchAssistantComponent(): void {
+	const target = AssistantMessageComponent.prototype as Renderable & Record<PropertyKey, unknown>;
+	const original = (target[ORIGINAL_RENDER] as Renderable["render"] | undefined) ?? target.render;
+
+	if (!Object.hasOwn(target, ORIGINAL_RENDER)) {
+		Object.defineProperty(target, ORIGINAL_RENDER, { value: original, configurable: true });
+	}
+
+	target.render = function (this: Renderable, width: number): string[] {
+		return assistantPanel(original.call(this, width), width);
+	};
+}
+
 export default function (_pi: ExtensionAPI): void {
 	patchPanelBackgrounds();
 	patchPanelComponent(UserMessageComponent, true);
 	for (const ComponentClass of TWO_SIDED_PANEL_COMPONENTS) patchPanelComponent(ComponentClass);
+	patchAssistantComponent();
 }
