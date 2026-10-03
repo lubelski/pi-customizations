@@ -6,11 +6,11 @@ User-level customizations for [Pi](https://github.com/earendil-works/pi).
 
 ### `half-bleed.ts`
 
-Makes transcript panels less full-bleed without changing their terminal-cell layout:
+Shapes Pi's existing colored transcript panels without changing their terminal-cell layout:
 
-- half-cell side margins using standard block elements;
-- half-row top and bottom caps;
-- faux-rounded corners using standard quadrant blocks.
+- factory-default one-cell colored padding remains between content and each panel edge;
+- Pi's existing outer viewport gutter remains terminal-colored;
+- half-row top and bottom caps use faux-rounded quadrant corners.
 
 Install it as a user extension:
 

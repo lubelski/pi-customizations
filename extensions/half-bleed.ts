@@ -9,22 +9,13 @@ import {
 	UserMessageComponent,
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
-import { foregroundAnsi, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-
-const PANEL_BACKGROUNDS = new Set([
-	"userMessageBg",
-	"customMessageBg",
-	"toolPendingBg",
-	"toolSuccessBg",
-	"toolErrorBg",
-]);
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
 const ORIGINAL_BG = Symbol.for("will.pi.half-bleed.original-bg");
 const ORIGINAL_FG = Symbol.for("will.pi.half-bleed.original-fg");
 const ORIGINAL_RENDER = Symbol.for("will.pi.half-bleed.original-render");
-const LEFT_EDGE = "▐"; // right half block
-const RIGHT_EDGE = "▌"; // left half block
-const BLANK_PANEL_LINE = /^▐ *▌$/u;
+const BLANK_PANEL_LINE = /^ +$/u;
+const BACKGROUND_ANSI = /\x1b\[(48;2;\d+;\d+;\d+|48;5;\d+|4[0-7]|10[0-7])m/u;
 
 const PANEL_COMPONENTS = [
 	UserMessageComponent,
@@ -35,33 +26,36 @@ const PANEL_COMPONENTS = [
 	SkillInvocationMessageComponent,
 ];
 
-type PatchableTheme = Theme & {
-	getBgAnsi(color: string): string;
-	getColorMode(): Parameters<typeof foregroundAnsi>[1];
-};
-
 type Renderable = {
 	render(width: number): string[];
 };
 
+function foregroundFromBackground(code: string): string | undefined {
+	if (code.startsWith("48;")) return `\x1b[${code.replace(/^48;/u, "38;")}m`;
+	const value = Number(code);
+	if (value >= 40 && value <= 47) return `\x1b[${value - 10}m`;
+	if (value >= 100 && value <= 107) return `\x1b[${value - 10}m`;
+	return undefined;
+}
+
 function chamferLine(line: string, edge: "top" | "bottom"): string {
 	const plain = stripTerminalSequences(line);
-	const left = line.indexOf(LEFT_EDGE);
-	const right = line.lastIndexOf(RIGHT_EDGE);
-	if (!BLANK_PANEL_LINE.test(plain) || left < 0 || right <= left) return line;
+	const backgroundMatch = BACKGROUND_ANSI.exec(line);
+	if (!BLANK_PANEL_LINE.test(plain) || !backgroundMatch || visibleWidth(plain) < 2) return line;
 
+	const foreground = foregroundFromBackground(backgroundMatch[1]);
+	if (!foreground) return line;
 	const middleWidth = visibleWidth(plain) - 2;
 
-	// Standard 2×2 quadrant blocks trade the sharper sextant diagonals for a
-	// softer, widely supported faux-round corner. The half-row cap also pairs
-	// symmetrically with the half-cell side edges.
+	// The normal content row keeps Pi's full colored padding cell. Quadrants
+	// shape only the half-row caps, leaving Pi's outer viewport gutter untouched.
 	const fill = edge === "top" ? "▄" : "▀";
 	const leftCorner = edge === "top" ? "▗" : "▝";
 	const rightCorner = edge === "top" ? "▖" : "▘";
 
-	// Keep the existing OSC markers and color setup before the first visible
-	// cell, plus the ANSI cleanup after the last one.
-	return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + rightCorner + line.slice(right + 1);
+	// Preserve OSC markers before the background escape, then draw the cap as
+	// foreground block elements over the terminal's default background.
+	return `${line.slice(0, backgroundMatch.index)}\x1b[49m${foreground}${leftCorner}${fill.repeat(middleWidth)}${rightCorner}\x1b[39m`;
 }
 
 function addVerticalHalfCells(lines: string[]): string[] {
@@ -94,9 +88,9 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	};
 }
 
-function restoreRemovedAssistantExperiment(): void {
-	// Older revisions patched assistant rendering and Theme.fg(). `/reload`
-	// keeps those prototypes alive, so explicitly restore Pi's originals.
+function restoreRemovedExperiments(): void {
+	// `/reload` keeps patched prototypes alive. Restore experiments that this
+	// revision no longer uses before installing the current component wrappers.
 	const assistant = AssistantMessageComponent.prototype as Renderable & Record<PropertyKey, unknown>;
 	const originalRender = assistant[ORIGINAL_RENDER] as Renderable["render"] | undefined;
 	if (originalRender) {
@@ -104,7 +98,15 @@ function restoreRemovedAssistantExperiment(): void {
 		delete assistant[ORIGINAL_RENDER];
 	}
 
-	const theme = Theme.prototype as unknown as Record<PropertyKey, unknown> & { fg: Theme["fg"] };
+	const theme = Theme.prototype as unknown as Record<PropertyKey, unknown> & {
+		bg: Theme["bg"];
+		fg: Theme["fg"];
+	};
+	const originalBg = theme[ORIGINAL_BG] as Theme["bg"] | undefined;
+	if (originalBg) {
+		theme.bg = originalBg;
+		delete theme[ORIGINAL_BG];
+	}
 	const originalFg = theme[ORIGINAL_FG] as Theme["fg"] | undefined;
 	if (originalFg) {
 		theme.fg = originalFg;
@@ -112,35 +114,7 @@ function restoreRemovedAssistantExperiment(): void {
 	}
 }
 
-function patchPanelBackgrounds(): void {
-	const target = Theme.prototype as unknown as Record<PropertyKey, unknown> & {
-		bg: Theme["bg"];
-	};
-	const original = (target[ORIGINAL_BG] as Theme["bg"] | undefined) ?? target.bg;
-
-	if (!Object.hasOwn(target, ORIGINAL_BG)) {
-		Object.defineProperty(target, ORIGINAL_BG, { value: original, configurable: true });
-	}
-
-	target.bg = function (this: PatchableTheme, color: Parameters<Theme["bg"]>[0], text: string): string {
-		if (!PANEL_BACKGROUNDS.has(color) || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
-			return original.call(this, color, text);
-		}
-
-		const background = this.getBgAnsi(color);
-		if (background === "\x1b[49m") return original.call(this, color, text);
-
-		const foreground = foregroundAnsi(this.colors[color], this.getColorMode());
-		const middle = text.slice(1, -1);
-
-		// Half-cell side edges are supported reliably by terminal fonts and split
-		// the original padding evenly between exterior margin and interior space.
-		return `\x1b[49m${foreground}${LEFT_EDGE}\x1b[39m${background}${middle}\x1b[49m${foreground}${RIGHT_EDGE}\x1b[39m`;
-	} as Theme["bg"];
-}
-
 export default function (_pi: ExtensionAPI): void {
-	restoreRemovedAssistantExperiment();
-	patchPanelBackgrounds();
+	restoreRemovedExperiments();
 	for (const ComponentClass of PANEL_COMPONENTS) patchPanelComponent(ComponentClass);
 }
