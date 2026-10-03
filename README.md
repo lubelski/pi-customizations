@@ -9,7 +9,8 @@ User-level customizations for [Pi](https://github.com/earendil-works/pi).
 Gives transcript messages asymmetric colored panels:
 
 - user messages have a shaped left edge and remain full-bleed on the right;
-- assistant responses use a gray background, remain full-bleed on the left, and have a shaped right edge;
+- assistant responses use a gray background, remain full-bleed on the left, and have a shaped top-right/side edge without a synthetic bottom border;
+- hidden `Thinking...` text remains on the terminal's normal background;
 - other transcript panels have half-cell margins on both sides;
 - one-third-row top and bottom padding uses Unicode sextants;
 - small diagonal corner clips use Symbols for Legacy Computing.

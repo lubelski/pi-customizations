@@ -155,16 +155,26 @@ function assistantPanel(lines: string[], width: number): string[] {
 	const background = currentTheme.getBgAnsi("toolPendingBg");
 	if (background === "\x1b[49m") return lines;
 	const foreground = foregroundAnsi(currentTheme.colors.toolPendingBg, currentTheme.getColorMode());
+	const result = [...lines];
+
+	// Hidden thinking is part of AssistantMessageComponent, but it should remain
+	// ordinary white-on-background transcript text. Start the gray response panel
+	// at the blank separator after it. While only thinking exists, draw no panel.
+	const thinkingIndex = result.findIndex((line) => /^(?:thinking)(?:\.{3}|…)?$/iu.test(stripTerminalSequences(line).trim()));
+	let topIndex = 0;
+	if (thinkingIndex >= 0) {
+		topIndex = result.findIndex((line, index) => index > thinkingIndex && stripTerminalSequences(line).trim() === "");
+		if (topIndex < 0 || topIndex === result.length - 1) return lines;
+	}
 
 	const topFill = "🬭".repeat(width - 1);
-	const bottomFill = "🬂".repeat(width - 1);
-	const result = [...lines];
-	const firstPlain = stripTerminalSequences(result[0]);
 	const topEdge = `\x1b[49m${foreground}${topFill}🬼\x1b[39m`;
-	if (firstPlain.length === 0) result[0] += topEdge;
-	else result.unshift(topEdge);
+	if (stripTerminalSequences(result[topIndex]).length === 0) result[topIndex] += topEdge;
+	else {
+		result.splice(topIndex, 0, topEdge);
+	}
 
-	for (let index = 1; index < result.length; index++) {
+	for (let index = topIndex + 1; index < result.length; index++) {
 		const line = result[index];
 		if (visibleWidth(line) !== width || !line.endsWith(" ")) {
 			result[index] = `${background}${line}\x1b[49m`;
@@ -173,7 +183,8 @@ function assistantPanel(lines: string[], width: number): string[] {
 		result[index] = `${background}${line.slice(0, -1)}\x1b[49m${foreground}${RIGHT_EDGE}\x1b[39m`;
 	}
 
-	result.push(`\x1b[49m${foreground}${bottomFill}🭗\x1b[39m`);
+	// Deliberately no synthetic bottom edge: the final content row ends like a
+	// native full-bleed transcript block instead of relying on corner glyphs.
 	return result;
 }
 
