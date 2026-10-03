@@ -6,14 +6,11 @@ User-level customizations for [Pi](https://github.com/earendil-works/pi).
 
 ### `half-bleed.ts`
 
-Gives transcript messages asymmetric colored panels:
+Makes transcript panels less full-bleed without changing their terminal-cell layout:
 
-- user messages have a shaped left edge and remain full-bleed on the right;
-- assistant responses use a gray background, remain full-bleed on the left, and have a shaped top-right/side edge without a synthetic bottom border;
-- hidden `Thinking...` text remains on the terminal's normal background;
-- other transcript panels have half-cell margins on both sides;
-- one-third-row top and bottom padding uses Unicode sextants;
-- small diagonal corner clips use Symbols for Legacy Computing.
+- half-cell side margins using standard block elements;
+- one-third-row top and bottom padding using Unicode sextants;
+- small diagonal corner clips using Symbols for Legacy Computing.
 
 Install it as a user extension:
 
