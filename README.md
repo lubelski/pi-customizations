@@ -8,9 +8,9 @@ User-level customizations for [Pi](https://github.com/earendil-works/pi).
 
 Shapes Pi's existing colored transcript panels without changing their terminal-cell layout:
 
-- factory-default one-cell colored padding remains between content and each panel edge;
-- Pi's existing outer viewport gutter remains terminal-colored;
-- half-row top and bottom caps use faux-rounded quadrant corners.
+- content rows use half-cell colored side edges;
+- top and bottom caps occupy one third of a row;
+- corner cells use individual sextants for exact square intersections, with no diagonal treatment.
 
 Install it as a user extension:
 
@@ -21,4 +21,4 @@ ln -s "$HOME/dev/pi-customizations/extensions/half-bleed.ts" \
 
 Then run `/reload` inside Pi.
 
-The panel geometry uses widely supported Unicode Block Elements.
+The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.
