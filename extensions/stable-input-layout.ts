@@ -13,7 +13,6 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const LOWER_PANE_HEIGHT = 6;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
-const LABEL_WIDTH = 9;
 
 type AutocompleteEditor = EditorComponent & {
 	getAutocompleteMaxVisible?: () => number;
@@ -26,8 +25,15 @@ type UsageTotals = Pick<Usage, "input" | "output" | "cacheRead" | "cacheWrite"> 
 	cost: number;
 };
 
+type QueueShortcuts = {
+	submit: string;
+	followUp: string;
+	dequeue: string;
+};
+
 type LowerPaneState = {
 	autocompleteOpen: boolean;
+	shortcuts: QueueShortcuts;
 };
 
 function formatCount(count: number): string {
@@ -77,10 +83,46 @@ function usageTotals(entries: readonly SessionEntry[]): UsageTotals {
 	return totals;
 }
 
-function labeledLine(theme: Theme, label: string, value: string, width: number, emphasize = false): string {
-	const prefix = theme.fg("dim", label.padEnd(LABEL_WIDTH));
-	const styledValue = theme.fg(emphasize ? "text" : "dim", value);
-	return truncateToWidth(prefix + styledValue, width, theme.fg("dim", "…"));
+function valueLine(theme: Theme, value: string, width: number, emphasize = false): string {
+	return truncateToWidth(
+		theme.fg(emphasize ? "text" : "dim", value),
+		width,
+		theme.fg("dim", "…"),
+	);
+}
+
+function splitLine(theme: Theme, left: string, right: string, width: number): string {
+	const gap = 2;
+	const rightWidth = visibleWidth(right);
+	const leftWidth = width - rightWidth - gap;
+	if (leftWidth < 4) return truncateToWidth(right, width, theme.fg("dim", "…"));
+
+	const leftSide = truncateToWidth(left, leftWidth, theme.fg("dim", "…"));
+	const padding = " ".repeat(Math.max(gap, width - visibleWidth(leftSide) - rightWidth));
+	return leftSide + padding + right;
+}
+
+function shortcutLabel(key: string | undefined, fallback: string): string {
+	if (!key) return fallback;
+	const labels: Record<string, string> = {
+		alt: "⌥",
+		ctrl: "⌃",
+		shift: "⇧",
+		super: "⌘",
+		enter: "↵",
+		return: "↵",
+		up: "↑",
+		down: "↓",
+	};
+	return key.split("+").map((part) => labels[part] ?? part).join("");
+}
+
+function queueGuidance(theme: Theme, ctx: ExtensionContext, shortcuts: QueueShortcuts): string {
+	const pending = ctx.hasPendingMessages();
+	const state = pending ? "working + queued" : ctx.isIdle() ? "idle" : "working";
+	const stateColor = pending ? "warning" : ctx.isIdle() ? "dim" : "accent";
+	const controls = ` · ${shortcuts.submit} steer next turn · ${shortcuts.followUp} queue after task · ${shortcuts.dequeue} restore`;
+	return theme.fg(stateColor, state) + theme.fg("dim", controls);
 }
 
 type StructuredTitle = {
@@ -104,19 +146,17 @@ function localDateStamp(timestamp: string | undefined, fallback: string): string
 
 function titleLine(theme: Theme, rawTitle: string, startedAt: string | undefined, width: number): string {
 	const structured = parseStructuredTitle(rawTitle);
-	if (!structured) return labeledLine(theme, "title", rawTitle, width, true);
+	if (!structured) return valueLine(theme, rawTitle, width, true);
 
-	const prefix = theme.fg("dim", "title".padEnd(LABEL_WIDTH));
 	const metadata = `${structured.type} · ${localDateStamp(startedAt, structured.generatedDate)}`;
-	const bodyWidth = Math.max(0, width - LABEL_WIDTH);
 	const metadataWidth = visibleWidth(metadata);
 	const gap = 2;
-	const topicWidth = bodyWidth - metadataWidth - gap;
-	if (topicWidth < 4) return labeledLine(theme, "title", structured.topic, width, true);
+	const topicWidth = width - metadataWidth - gap;
+	if (topicWidth < 4) return valueLine(theme, structured.topic, width, true);
 
 	const topic = truncateToWidth(theme.fg("text", structured.topic), topicWidth, theme.fg("dim", "…"));
-	const padding = " ".repeat(Math.max(gap, bodyWidth - visibleWidth(topic) - metadataWidth));
-	return prefix + topic + padding + theme.fg("dim", metadata);
+	const padding = " ".repeat(Math.max(gap, width - visibleWidth(topic) - metadataWidth));
+	return topic + padding + theme.fg("dim", metadata);
 }
 
 function createFooter(
@@ -166,11 +206,11 @@ function createFooter(
 			const title = sanitize(ctx.sessionManager.getSessionName() ?? "Untitled conversation");
 
 			return [
-				labeledLine(theme, "project", project, width),
-				labeledLine(theme, "usage", usageParts.join(" ") || "—", width),
-				labeledLine(theme, "context", contextValue, width),
-				labeledLine(theme, "model", modelValue, width),
-				labeledLine(theme, "status", statuses || "—", width),
+				splitLine(theme, theme.fg("dim", project), queueGuidance(theme, ctx, state.shortcuts), width),
+				valueLine(theme, usageParts.join(" ") || "—", width),
+				valueLine(theme, contextValue, width),
+				valueLine(theme, modelValue, width),
+				valueLine(theme, statuses || "—", width),
 				titleLine(theme, title, entries[0]?.timestamp, width),
 			];
 		},
@@ -186,10 +226,19 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 
-		const state: LowerPaneState = { autocompleteOpen: false };
+		const state: LowerPaneState = {
+			autocompleteOpen: false,
+			shortcuts: { submit: "↵", followUp: "⌥↵", dequeue: "⌥↑" },
+		};
 		const previousFactory = ctx.ui.getEditorComponent();
 
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+			state.shortcuts = {
+				submit: shortcutLabel(keybindings.getKeys("tui.input.submit")[0], "↵"),
+				followUp: shortcutLabel(keybindings.getKeys("app.message.followUp")[0], "⌥↵"),
+				dequeue: shortcutLabel(keybindings.getKeys("app.message.dequeue")[0], "⌥↑"),
+			};
+
 			const editor: AutocompleteEditor = previousFactory
 				? previousFactory(tui, theme, keybindings)
 				: new CustomEditor(tui, theme, keybindings);
