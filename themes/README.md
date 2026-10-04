@@ -15,7 +15,7 @@ Select `turquoise` through `/settings`, then run `/reload`.
 
 ## `turquoise`
 
-A dark theme based on Pi's built-in dark palette. It keeps blue user-message panels, neutral body text, semantic green/yellow/red states, and replaces the violet/pink family used by accents, active borders, inline code, list bullets, custom messages, syntax types, and thinking levels with turquoise and teal.
+A dark theme based on Pi's built-in dark palette. It keeps blue user-message panels, neutral body text, semantic green/yellow/red states, and replaces the violet/pink family used by accents, active borders, inline code, list bullets, custom messages, syntax types, and thinking levels with turquoise and teal. Thinking-level colors are deliberately subdued because they draw the editor's horizontal rules.
 
 The custom extensions compose with the theme as follows:
 
