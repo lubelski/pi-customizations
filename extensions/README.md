@@ -15,7 +15,7 @@ After installing or updating an extension, run `/reload` inside Pi.
 
 ## `assistant-background.ts`
 
-Gives assistant prose a full-width, adaptive neutral-gray background while leaving thinking text unboxed. Dark and light themes receive different grays to preserve contrast.
+Gives assistant prose an adaptive neutral-gray panel while leaving thinking text unboxed. Dark and light themes receive different grays to preserve contrast. The panel uses the same half-cell sides and partial-height caps as the user-message treatment.
 
 Pi does not expose a public renderer for built-in assistant messages. This experiment uses the current component structure: prose is a direct Markdown child, while thinking is wrapped separately. It should fail harmlessly if that structure changes.
 
@@ -27,6 +27,8 @@ Shapes transcript panels without changing their terminal-cell layout:
 - their top and bottom caps occupy one third of a row;
 - their corner cells use individual sextants for exact square intersections;
 - tool panels lose their filled background and right edge, leaving one thin, muted left rule;
+- the tool rule starts and ends with rendered tool content rather than extending through box padding;
+- Pi's standalone pre-tool separator is removed to tighten the transition from assistant prose;
 - tool errors use an error-colored left rule.
 
 The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.

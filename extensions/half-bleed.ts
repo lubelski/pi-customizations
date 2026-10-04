@@ -82,6 +82,18 @@ function addVerticalThirdCells(lines: string[]): string[] {
 	return result;
 }
 
+function trimToolRulePadding(lines: string[]): string[] {
+	let start = 0;
+	let end = lines.length;
+
+	// ToolExecutionComponent adds a standalone separator before its padded box.
+	// The assistant panel's partial-height cap now supplies enough separation.
+	if (stripTerminalSequences(lines[start] ?? "").trim() === "") start++;
+	if (end > start && /^│ *$/u.test(stripTerminalSequences(lines[start] ?? ""))) start++;
+	if (end > start && /^│ *$/u.test(stripTerminalSequences(lines[end - 1] ?? ""))) end--;
+	return start === 0 && end === lines.length ? lines : lines.slice(start, end);
+}
+
 function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	const target = ComponentClass.prototype as Renderable & Record<PropertyKey, unknown>;
 	const original = (target[ORIGINAL_RENDER] as Renderable["render"] | undefined) ?? target.render;
@@ -91,7 +103,10 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	}
 
 	target.render = function (this: Renderable, width: number): string[] {
-		return addVerticalThirdCells(original.call(this, width));
+		const lines = original.call(this, width);
+		return ComponentClass === ToolExecutionComponent
+			? trimToolRulePadding(lines)
+			: addVerticalThirdCells(lines);
 	};
 }
 

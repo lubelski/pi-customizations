@@ -4,7 +4,7 @@ Personal UI extensions for [Pi](https://github.com/earendil-works/pi).
 
 ## Included extensions
 
-- [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose a neutral gray background
+- [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose a shaped neutral-gray panel
 - [`half-bleed.ts`](extensions/half-bleed.ts) — reshapes message panels and reduces tools to a thin left rule
 - [`native-cursor.ts`](extensions/native-cursor.ts) — uses the terminal's native cursor
 - [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
