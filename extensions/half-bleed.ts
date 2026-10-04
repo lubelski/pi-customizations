@@ -9,7 +9,7 @@ import {
 	UserMessageComponent,
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
-import { foregroundAnsi, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { foregroundAnsi, mixColors, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	LEFT_PANEL_EDGE,
 	RIGHT_PANEL_EDGE,
@@ -84,7 +84,9 @@ function patchPanelBackgrounds(): void {
 			// Tool panels should read as transcript scaffolding, not as messages.
 			// Replace their filled box with one thin, low-salience left rule. Keep
 			// errors distinct without restoring the full error background.
-			const edgeColor = color === "toolErrorBg" ? this.colors.error : this.colors.toolPendingBg;
+			const edgeColor = color === "toolErrorBg"
+				? this.colors.error
+				: mixColors(this.colors.toolPendingBg, this.colors.borderMuted, 0.25);
 			const edge = foregroundAnsi(edgeColor, this.getColorMode());
 			return `\x1b[49m${edge}│\x1b[39m${text.slice(1)}`;
 		}
