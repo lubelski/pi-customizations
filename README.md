@@ -1,57 +1,18 @@
 # Pi customizations
 
-User-level customizations for [Pi](https://github.com/earendil-works/pi).
+Personal UI extensions for [Pi](https://github.com/earendil-works/pi).
 
-## Extensions
+## Included extensions
 
-### `half-bleed.ts`
+- [`half-bleed.ts`](extensions/half-bleed.ts) — reshapes colored transcript panels
+- [`native-cursor.ts`](extensions/native-cursor.ts) — uses the terminal's native cursor
+- [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
+- [`stable-autocomplete-height.ts`](extensions/stable-autocomplete-height.ts) — stabilizes autocomplete layout
 
-Shapes Pi's existing colored transcript panels without changing their terminal-cell layout:
+See [`extensions/README.md`](extensions/README.md) for details and installation.
 
-- content rows use half-cell colored side edges;
-- top and bottom caps occupy one third of a row;
-- corner cells use individual sextants for exact square intersections, with no diagonal treatment.
+## Other extensions in use
 
-Install it as a user extension:
-
-```sh
-ln -s "$HOME/dev/pi-customizations/extensions/half-bleed.ts" \
-  "$HOME/.pi/agent/extensions/half-bleed.ts"
-```
-
-The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.
-
-### `native-cursor.ts`
-
-Removes Pi's reverse-video software cursor while preserving the cursor marker used to position the terminal's native cursor.
-
-```sh
-ln -s "$HOME/dev/pi-customizations/extensions/native-cursor.ts" \
-  "$HOME/.pi/agent/extensions/native-cursor.ts"
-```
-
-### `recessed-tools.ts`
-
-Makes tool activity secondary to the assistant's prose while preserving access to its details:
-
-- collapsed tool panels show at most seven lines, retaining both their beginning and end;
-- expanding a tool still reveals the complete component;
-- successful tool panels use the quieter pending-tool background;
-- tool titles and output use the theme's dim text color;
-- errors retain their distinct background, and image results are not truncated.
-
-```sh
-ln -s "$HOME/dev/pi-customizations/extensions/recessed-tools.ts" \
-  "$HOME/.pi/agent/extensions/recessed-tools.ts"
-```
-
-### `stable-autocomplete-height.ts`
-
-Keeps the editor's autocomplete menu at a fixed height while it is open, preventing content below it from moving as results are filtered.
-
-```sh
-ln -s "$HOME/dev/pi-customizations/extensions/stable-autocomplete-height.ts" \
-  "$HOME/.pi/agent/extensions/stable-autocomplete-height.ts"
-```
-
-After installing or updating an extension, run `/reload` inside Pi.
+- [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) — third-party MCP support; replaces Pi's built-in MCP extension
+- [`@moguw/pi-session-rename`](https://github.com/Mieluoxxx/pi-ext/tree/main/extensions/pi-session-rename) — third-party automatic session naming
+- [`pi-persistent-learning-map`](https://github.com/lubelski/pi-persistent-learning-map) — local, versioned project learning maps
