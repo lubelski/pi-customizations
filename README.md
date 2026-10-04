@@ -16,5 +16,4 @@ See [`extensions/README.md`](extensions/README.md) for details and installation.
 
 - [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) — third-party MCP support; replaces Pi's built-in MCP extension
 - [`@moguw/pi-session-rename`](https://github.com/Mieluoxxx/pi-ext/tree/main/extensions/pi-session-rename) — third-party automatic session naming
-- [`pi-material-black-simple`](https://github.com/AntonKettner/pi-material-black-simple) — third-party theme and transcript highlighting
 - `herdr-agent-state.ts` — Herdr-managed agent status integration
