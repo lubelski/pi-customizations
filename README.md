@@ -1,6 +1,6 @@
 # Pi customizations
 
-Personal UI extensions for [Pi](https://github.com/earendil-works/pi).
+Personal UI extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
 ## Included extensions
 
@@ -11,6 +11,12 @@ Personal UI extensions for [Pi](https://github.com/earendil-works/pi).
 - [`stable-input-layout.ts`](extensions/stable-input-layout.ts) — shares a fixed lower pane between session info and autocomplete
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
+
+## Included theme
+
+- [`turquoise`](themes/turquoise.json) — a dark palette that replaces Pi's violet/pink accent family with turquoise and teal
+
+See [`themes/README.md`](themes/README.md) for installation and interaction details.
 
 ## Tests
 
