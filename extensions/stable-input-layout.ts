@@ -121,7 +121,7 @@ function queueGuidance(theme: Theme, ctx: ExtensionContext, shortcuts: QueueShor
 	const pending = ctx.hasPendingMessages();
 	const state = pending ? "working + queued" : ctx.isIdle() ? "idle" : "working";
 	const stateColor = pending ? "warning" : ctx.isIdle() ? "dim" : "accent";
-	const controls = ` · ${shortcuts.submit} steer next turn · ${shortcuts.followUp} queue after task · ${shortcuts.dequeue} restore`;
+	const controls = ` · ${shortcuts.submit} steer next turn · ${shortcuts.followUp} queue after task · ${shortcuts.dequeue} edit queue`;
 	return theme.fg(stateColor, state) + theme.fg("dim", controls);
 }
 

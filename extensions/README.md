@@ -53,7 +53,7 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 Keeps a six-row pane below the editor so the input and transcript remain anchored:
 
 - while idle, the pane shows unlabeled project, usage, context, model, extension status, and conversation title values on separate lines;
-- the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` restores queued input;
+- the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
 - the conversation title always occupies the bottom line;
 - structured `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with `TYPE · MMDD` dimmed and right-aligned using the session's local start date;
 - while autocomplete is open, up to five choices plus its scroll indicator replace the session information in the same space;
