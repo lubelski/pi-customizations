@@ -7,7 +7,7 @@ Personal UI extensions for [Pi](https://github.com/earendil-works/pi).
 - [`half-bleed.ts`](extensions/half-bleed.ts) — reshapes colored transcript panels
 - [`native-cursor.ts`](extensions/native-cursor.ts) — uses the terminal's native cursor
 - [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
-- [`stable-autocomplete-height.ts`](extensions/stable-autocomplete-height.ts) — stabilizes autocomplete layout
+- [`stable-input-layout.ts`](extensions/stable-input-layout.ts) — shares a fixed lower pane between session info and autocomplete
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
 

@@ -38,6 +38,12 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 - errors retain their distinct background;
 - image results are not truncated.
 
-## `stable-autocomplete-height.ts`
+## `stable-input-layout.ts`
 
-Keeps the editor's autocomplete menu at a fixed height while it is open, preventing content below it from moving as results are filtered.
+Keeps a six-row pane below the editor so the input and transcript remain anchored:
+
+- while idle, the pane shows project, usage, context, model, extension status, and conversation title on separate lines;
+- the conversation title always occupies the bottom line;
+- while autocomplete is open, up to five choices plus its scroll indicator replace the session information in the same space;
+- short autocomplete lists are padded to the same height, so filtering does not move the input;
+- the terminal's native cursor customization continues to compose with the custom editor.
