@@ -10,6 +10,12 @@ import {
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 import { foregroundAnsi, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	LEFT_PANEL_EDGE,
+	RIGHT_PANEL_EDGE,
+	shapePanelCaps,
+	trimToolRulePadding,
+} from "../lib/pi-customizations/transcript-layout.ts";
 
 const TOOL_BACKGROUNDS = new Set([
 	"toolPendingBg",
@@ -26,9 +32,6 @@ const PANEL_BACKGROUNDS = new Set([
 const ORIGINAL_BG = Symbol.for("will.pi.half-bleed.original-bg");
 const ORIGINAL_FG = Symbol.for("will.pi.half-bleed.original-fg");
 const ORIGINAL_RENDER = Symbol.for("will.pi.half-bleed.original-render");
-const LEFT_EDGE = "▐"; // right half block
-const RIGHT_EDGE = "▌"; // left half block
-const BLANK_PANEL_LINE = /^▐ *▌$/u;
 
 const PANEL_COMPONENTS = [
 	UserMessageComponent,
@@ -48,52 +51,6 @@ type Renderable = {
 	render(width: number): string[];
 };
 
-function chamferLine(line: string, edge: "top" | "bottom"): string {
-	const plain = stripTerminalSequences(line);
-	const left = line.indexOf(LEFT_EDGE);
-	const right = line.lastIndexOf(RIGHT_EDGE);
-	if (!BLANK_PANEL_LINE.test(plain) || left < 0 || right <= left) return line;
-
-	const middleWidth = visibleWidth(plain) - 2;
-
-	// Sextants provide the exact rectangular intersection requested: half a
-	// cell horizontally and one third of a row vertically, with no diagonal.
-	const fill = edge === "top" ? "🬭" : "🬂"; // lower third / upper third
-	const leftCorner = edge === "top" ? "🬞" : "🬁"; // sextant 6 / sextant 2
-	const rightCorner = edge === "top" ? "🬏" : "🬀"; // sextant 5 / sextant 1
-
-	return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + rightCorner + line.slice(right + 1);
-}
-
-function addVerticalThirdCells(lines: string[]): string[] {
-	const blankPanelLines: number[] = [];
-	for (let index = 0; index < lines.length; index++) {
-		if (BLANK_PANEL_LINE.test(stripTerminalSequences(lines[index]))) blankPanelLines.push(index);
-	}
-	if (blankPanelLines.length < 2) return lines;
-
-	const top = blankPanelLines[0];
-	const bottom = blankPanelLines.at(-1)!;
-	if (top === bottom) return lines;
-
-	const result = [...lines];
-	result[top] = chamferLine(result[top], "top");
-	result[bottom] = chamferLine(result[bottom], "bottom");
-	return result;
-}
-
-function trimToolRulePadding(lines: string[]): string[] {
-	let start = 0;
-	let end = lines.length;
-
-	// ToolExecutionComponent adds a standalone separator before its padded box.
-	// The assistant panel's partial-height cap now supplies enough separation.
-	if (stripTerminalSequences(lines[start] ?? "").trim() === "") start++;
-	if (end > start && /^│ *$/u.test(stripTerminalSequences(lines[start] ?? ""))) start++;
-	if (end > start && /^│ *$/u.test(stripTerminalSequences(lines[end - 1] ?? ""))) end--;
-	return start === 0 && end === lines.length ? lines : lines.slice(start, end);
-}
-
 function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	const target = ComponentClass.prototype as Renderable & Record<PropertyKey, unknown>;
 	const original = (target[ORIGINAL_RENDER] as Renderable["render"] | undefined) ?? target.render;
@@ -105,8 +62,8 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 	target.render = function (this: Renderable, width: number): string[] {
 		const lines = original.call(this, width);
 		return ComponentClass === ToolExecutionComponent
-			? trimToolRulePadding(lines)
-			: addVerticalThirdCells(lines);
+			? trimToolRulePadding(lines, stripTerminalSequences)
+			: shapePanelCaps(lines, stripTerminalSequences, visibleWidth);
 	};
 }
 
@@ -137,7 +94,7 @@ function patchPanelBackgrounds(): void {
 
 		const foreground = foregroundAnsi(this.colors[color], this.getColorMode());
 		const middle = text.slice(1, -1);
-		return `\x1b[49m${foreground}${LEFT_EDGE}\x1b[39m${background}${middle}\x1b[49m${foreground}${RIGHT_EDGE}\x1b[39m`;
+		return `\x1b[49m${foreground}${LEFT_PANEL_EDGE}\x1b[39m${background}${middle}\x1b[49m${foreground}${RIGHT_PANEL_EDGE}\x1b[39m`;
 	} as Theme["bg"];
 }
 

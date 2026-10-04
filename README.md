@@ -12,6 +12,10 @@ Personal UI extensions for [Pi](https://github.com/earendil-works/pi).
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
 
+## Tests
+
+Run `npm test` to check assistant caps, thinking/prose/tool spacing, and compact tool rules without launching Pi.
+
 ## Other extensions in use
 
 - [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) — third-party MCP support; replaces Pi's built-in MCP extension

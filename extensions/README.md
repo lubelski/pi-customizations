@@ -5,17 +5,18 @@
 Link each extension into Pi's user extension directory:
 
 ```sh
-mkdir -p "$HOME/.pi/agent/extensions"
+mkdir -p "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib"
 for extension in "$HOME/dev/pi-customizations/extensions/"*.ts; do
   ln -sf "$extension" "$HOME/.pi/agent/extensions/$(basename "$extension")"
 done
+ln -sfn "$HOME/dev/pi-customizations/lib" "$HOME/.pi/agent/lib/pi-customizations"
 ```
 
 After installing or updating an extension, run `/reload` inside Pi.
 
 ## `assistant-background.ts`
 
-Gives assistant prose an adaptive neutral-gray panel while leaving thinking text unboxed. Dark and light themes receive different grays to preserve contrast. The panel uses the same half-cell sides and partial-height caps as the user-message treatment.
+Gives assistant prose an adaptive neutral-gray panel while leaving thinking text unboxed. Dark and light themes receive different grays to preserve contrast. The panel uses the same half-cell sides and partial-height caps as the user-message treatment. Thinking that leads directly into a tool gets the same separator spacing as thinking followed by prose.
 
 Pi does not expose a public renderer for built-in assistant messages. This experiment uses the current component structure: prose is a direct Markdown child, while thinking is wrapped separately. It should fail harmlessly if that structure changes.
 

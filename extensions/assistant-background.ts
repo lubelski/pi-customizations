@@ -11,13 +11,17 @@ import {
 	stripTerminalSequences,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import {
+	LEFT_PANEL_EDGE,
+	RIGHT_PANEL_EDGE,
+	shapePanelCaps,
+	stabilizeThinkingToolSpacing,
+	type ThinkingLayout,
+} from "../lib/pi-customizations/transcript-layout.ts";
 
 const ORIGINAL_RENDER = Symbol.for("will.pi.assistant-background.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.assistant-background.wrapped-render");
 const APPLIED_STYLE = Symbol.for("will.pi.assistant-background.applied-style");
-const LEFT_EDGE = "▐"; // right half block
-const RIGHT_EDGE = "▌"; // left half block
-const BLANK_PANEL_LINE = /^▐ *▌$/u;
 
 let activeTheme: Theme | undefined;
 
@@ -34,6 +38,9 @@ type MarkdownInternals = Markdown & {
 
 type AssistantInternals = {
 	contentContainer?: { children?: unknown[] };
+	lastMessage?: {
+		content?: Array<{ type: string; text?: string; thinking?: string }>;
+	};
 	render(width: number): string[];
 };
 
@@ -53,35 +60,16 @@ function assistantBackground(text: string): string {
 	}
 
 	const foreground = foregroundAnsi(color, mode);
-	return `\x1b[49m${foreground}${LEFT_EDGE}\x1b[39m${background}${text.slice(1, -1)}\x1b[49m${foreground}${RIGHT_EDGE}\x1b[39m`;
+	return `\x1b[49m${foreground}${LEFT_PANEL_EDGE}\x1b[39m${background}${text.slice(1, -1)}\x1b[49m${foreground}${RIGHT_PANEL_EDGE}\x1b[39m`;
 }
 
-function chamferLine(line: string, edge: "top" | "bottom"): string {
-	const plain = stripTerminalSequences(line);
-	const left = line.indexOf(LEFT_EDGE);
-	const right = line.lastIndexOf(RIGHT_EDGE);
-	if (!BLANK_PANEL_LINE.test(plain) || left < 0 || right <= left) return line;
-
-	const middleWidth = visibleWidth(plain) - 2;
-	const fill = edge === "top" ? "🬭" : "🬂";
-	const leftCorner = edge === "top" ? "🬞" : "🬁";
-	const rightCorner = edge === "top" ? "🬏" : "🬀";
-	return line.slice(0, left) + leftCorner + fill.repeat(middleWidth) + rightCorner + line.slice(right + 1);
-}
-
-function shapePanelCaps(lines: string[]): string[] {
-	const blankPanelLines: number[] = [];
-	for (let index = 0; index < lines.length; index++) {
-		if (BLANK_PANEL_LINE.test(stripTerminalSequences(lines[index]))) blankPanelLines.push(index);
-	}
-	if (blankPanelLines.length < 2) return lines;
-
-	const result = [...lines];
-	const top = blankPanelLines[0];
-	const bottom = blankPanelLines.at(-1)!;
-	result[top] = chamferLine(result[top], "top");
-	result[bottom] = chamferLine(result[bottom], "bottom");
-	return result;
+function messageLayout(component: AssistantInternals): ThinkingLayout {
+	const content = component.lastMessage?.content ?? [];
+	return {
+		hasThinking: content.some((part) => part.type === "thinking" && part.thinking?.trim()),
+		hasProse: content.some((part) => part.type === "text" && part.text?.trim()),
+		hasToolCall: content.some((part) => part.type === "toolCall"),
+	};
 }
 
 function styleTextBlocks(component: AssistantInternals): void {
@@ -113,7 +101,8 @@ function patchAssistantRendering(): void {
 
 	const wrapper = function (this: AssistantInternals, width: number): string[] {
 		styleTextBlocks(this);
-		return shapePanelCaps(original.call(this, width));
+		const shaped = shapePanelCaps(original.call(this, width), stripTerminalSequences, visibleWidth);
+		return stabilizeThinkingToolSpacing(shaped, messageLayout(this));
 	};
 
 	Object.defineProperty(target, ORIGINAL_RENDER, { value: original, configurable: true, writable: true });
