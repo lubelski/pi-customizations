@@ -27,7 +27,7 @@ Shapes transcript panels without changing their terminal-cell layout:
 - user and custom messages retain their filled backgrounds with half-cell side edges;
 - their top and bottom caps occupy one third of a row;
 - their corner cells use individual sextants for exact square intersections;
-- tool panels lose their filled background and right edge, leaving one thin, muted left rule;
+- tool panels lose their filled background and right edge, leaving one thin, very low-contrast left rule;
 - the tool rule starts and ends with rendered tool content rather than extending through box padding;
 - Pi's standalone pre-tool separator is removed to tighten the transition from assistant prose;
 - tool errors use an error-colored left rule.
