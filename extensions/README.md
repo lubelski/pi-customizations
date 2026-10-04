@@ -13,13 +13,21 @@ done
 
 After installing or updating an extension, run `/reload` inside Pi.
 
+## `assistant-background.ts`
+
+Gives assistant prose a full-width, adaptive neutral-gray background while leaving thinking text unboxed. Dark and light themes receive different grays to preserve contrast.
+
+Pi does not expose a public renderer for built-in assistant messages. This experiment uses the current component structure: prose is a direct Markdown child, while thinking is wrapped separately. It should fail harmlessly if that structure changes.
+
 ## `half-bleed.ts`
 
-Shapes Pi's existing colored transcript panels without changing their terminal-cell layout:
+Shapes transcript panels without changing their terminal-cell layout:
 
-- content rows use half-cell colored side edges;
-- top and bottom caps occupy one third of a row;
-- corner cells use individual sextants for exact square intersections, with no diagonal treatment.
+- user and custom messages retain their filled backgrounds with half-cell side edges;
+- their top and bottom caps occupy one third of a row;
+- their corner cells use individual sextants for exact square intersections;
+- tool panels lose their filled background and right edge, leaving one thin, muted left rule;
+- tool errors use an error-colored left rule.
 
 The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.
 
@@ -33,9 +41,8 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 
 - collapsed tool panels show at most seven lines, retaining both their beginning and end;
 - expanding a tool still reveals the complete component;
-- successful tool panels use the quieter pending-tool background;
 - tool titles and output use the theme's dim text color;
-- errors retain their distinct background;
+- errors remain visually distinct;
 - image results are not truncated.
 
 ## `stable-input-layout.ts`

@@ -11,12 +11,16 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { foregroundAnsi, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
-const PANEL_BACKGROUNDS = new Set([
-	"userMessageBg",
-	"customMessageBg",
+const TOOL_BACKGROUNDS = new Set([
 	"toolPendingBg",
 	"toolSuccessBg",
 	"toolErrorBg",
+]);
+
+const PANEL_BACKGROUNDS = new Set([
+	"userMessageBg",
+	"customMessageBg",
+	...TOOL_BACKGROUNDS,
 ]);
 
 const ORIGINAL_BG = Symbol.for("will.pi.half-bleed.original-bg");
@@ -102,6 +106,15 @@ function patchPanelBackgrounds(): void {
 	target.bg = function (this: PatchableTheme, color: Parameters<Theme["bg"]>[0], text: string): string {
 		if (!PANEL_BACKGROUNDS.has(color) || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
 			return original.call(this, color, text);
+		}
+
+		if (TOOL_BACKGROUNDS.has(color)) {
+			// Tool panels should read as transcript scaffolding, not as messages.
+			// Replace their filled box with one thin, low-salience left rule. Keep
+			// errors distinct without restoring the full error background.
+			const edgeColor = color === "toolErrorBg" ? this.colors.error : this.colors.borderMuted;
+			const edge = foregroundAnsi(edgeColor, this.getColorMode());
+			return `\x1b[49m${edge}│\x1b[39m${text.slice(1)}`;
 		}
 
 		const background = this.getBgAnsi(color);
