@@ -7,12 +7,19 @@ import {
 	type SessionEntry,
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, type EditorComponent, type TUI } from "@earendil-works/pi-tui";
+import {
+	stripTerminalSequences,
+	truncateToWidth,
+	visibleWidth,
+	type EditorComponent,
+	type TUI,
+} from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const LOWER_PANE_HEIGHT = 6;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
+const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 
 type AutocompleteEditor = EditorComponent & {
 	getAutocompleteMaxVisible?: () => number;
@@ -23,6 +30,15 @@ type AutocompleteEditor = EditorComponent & {
 
 type UsageTotals = Pick<Usage, "input" | "output" | "cacheRead" | "cacheWrite"> & {
 	cost: number;
+};
+
+type McpStatusSnapshot = {
+	version: 1;
+	servers: ReadonlyArray<{
+		name: string;
+		status: string;
+		disabled: boolean;
+	}>;
 };
 
 type QueueShortcuts = {
@@ -53,7 +69,29 @@ function formatCwd(cwd: string): string {
 }
 
 function sanitize(text: string): string {
-	return text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+	return stripTerminalSequences(text).replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+}
+
+function parseMcpStatusSnapshot(value: unknown): McpStatusSnapshot | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	const candidate = value as Partial<McpStatusSnapshot>;
+	if (candidate.version !== 1 || !Array.isArray(candidate.servers)) return undefined;
+	return candidate as McpStatusSnapshot;
+}
+
+function mcpServerNamesFromTools(pi: ExtensionAPI): string[] {
+	return pi.getActiveTools()
+		.map((toolName) => /^mcp__([^_].*)$/u.exec(toolName)?.[1])
+		.filter((name): name is string => Boolean(name));
+}
+
+function namedMcpStatus(snapshot: McpStatusSnapshot | undefined, fallbackNames: string[]): string | undefined {
+	const snapshotNames = snapshot?.servers
+		.filter((server) => !server.disabled)
+		.map((server) => server.name) ?? [];
+	const names = snapshotNames.length > 0 ? snapshotNames : fallbackNames;
+	const servers = [...new Set(names)].filter(Boolean).sort((a, b) => a.localeCompare(b));
+	return servers.length > 0 ? `🔌 MCP: ${servers.join(", ")}` : undefined;
 }
 
 function usageTotals(entries: readonly SessionEntry[]): UsageTotals {
@@ -165,6 +203,8 @@ function createFooter(
 	footerData: ReadonlyFooterDataProvider,
 	state: LowerPaneState,
 	ctx: ExtensionContext,
+	getMcpStatus: () => McpStatusSnapshot | undefined,
+	getMcpServerNames: () => string[],
 ) {
 	const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
@@ -197,10 +237,17 @@ function createFooter(
 				? `${model.provider}/${model.id}${model.reasoning ? ` • ${ctx.thinkingLevel ?? "off"}` : ""}`
 				: "no model";
 
-			const statuses = Array.from(footerData.getExtensionStatuses().entries())
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([, value]) => sanitize(value))
-				.filter(Boolean)
+			const extensionStatuses = footerData.getExtensionStatuses();
+			const mcpStatus = namedMcpStatus(getMcpStatus(), getMcpServerNames())
+				?? (extensionStatuses.get("mcp") ? sanitize(extensionStatuses.get("mcp")!) : undefined);
+			const statuses = [
+				mcpStatus,
+				...Array.from(extensionStatuses.entries())
+					.filter(([key]) => key !== "mcp")
+					.sort(([a], [b]) => a.localeCompare(b))
+					.map(([, value]) => sanitize(value)),
+			]
+				.filter((value): value is string => Boolean(value))
 				.join("  ");
 
 			const title = sanitize(ctx.sessionManager.getSessionName() ?? "Untitled conversation");
@@ -223,6 +270,14 @@ function createFooter(
  * pushing the editor and transcript upward.
  */
 export default function (pi: ExtensionAPI): void {
+	let latestMcpStatus: McpStatusSnapshot | undefined;
+	let activeTui: TUI | undefined;
+
+	pi.events.on(MCP_STATUS_EVENT, (value) => {
+		latestMcpStatus = parseMcpStatusSnapshot(value);
+		activeTui?.requestRender();
+	});
+
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 
@@ -269,6 +324,17 @@ export default function (pi: ExtensionAPI): void {
 			return editor;
 		});
 
-		ctx.ui.setFooter((tui, theme, footerData) => createFooter(tui, theme, footerData, state, ctx));
+		ctx.ui.setFooter((tui, theme, footerData) => {
+			activeTui = tui;
+			return createFooter(
+				tui,
+				theme,
+				footerData,
+				state,
+				ctx,
+				() => latestMcpStatus,
+				() => mcpServerNamesFromTools(pi),
+			);
+		});
 	});
 }

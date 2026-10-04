@@ -53,6 +53,7 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 Keeps a six-row pane below the editor so the input and transcript remain anchored:
 
 - while idle, the pane shows unlabeled project, usage, context, model, extension status, and conversation title values on separate lines;
+- when `pi-mcp-adapter` publishes its runtime snapshot, the status row names each enabled MCP server instead of showing only a count;
 - the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
 - the conversation title always occupies the bottom line;
 - structured `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with `TYPE · MMDD` dimmed and right-aligned using the session's local start date;
