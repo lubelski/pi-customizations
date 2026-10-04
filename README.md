@@ -21,13 +21,13 @@ ln -s "$HOME/dev/pi-customizations/extensions/half-bleed.ts" \
 
 The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.
 
-### `hardware-cursor.ts`
+### `native-cursor.ts`
 
-Removes Pi's reverse-video software cursor while preserving the cursor marker used to position the terminal's native hardware cursor.
+Removes Pi's reverse-video software cursor while preserving the cursor marker used to position the terminal's native cursor.
 
 ```sh
-ln -s "$HOME/dev/pi-customizations/extensions/hardware-cursor.ts" \
-  "$HOME/.pi/agent/extensions/hardware-cursor.ts"
+ln -s "$HOME/dev/pi-customizations/extensions/native-cursor.ts" \
+  "$HOME/.pi/agent/extensions/native-cursor.ts"
 ```
 
 ### `stable-autocomplete-height.ts`
