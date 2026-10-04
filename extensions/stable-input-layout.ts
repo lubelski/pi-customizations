@@ -7,7 +7,7 @@ import {
 	type SessionEntry,
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, type EditorComponent, type TUI } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, type EditorComponent, type TUI } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
@@ -83,6 +83,42 @@ function labeledLine(theme: Theme, label: string, value: string, width: number, 
 	return truncateToWidth(prefix + styledValue, width, theme.fg("dim", "…"));
 }
 
+type StructuredTitle = {
+	topic: string;
+	type: string;
+	generatedDate: string;
+};
+
+function parseStructuredTitle(title: string): StructuredTitle | undefined {
+	const match = /^(\d{4})｜([A-Z]{3})｜(.+)$/.exec(title);
+	if (!match) return undefined;
+	return { generatedDate: match[1], type: match[2], topic: match[3].trim() };
+}
+
+function localDateStamp(timestamp: string | undefined, fallback: string): string {
+	if (!timestamp) return fallback;
+	const date = new Date(timestamp);
+	if (Number.isNaN(date.getTime())) return fallback;
+	return `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function titleLine(theme: Theme, rawTitle: string, startedAt: string | undefined, width: number): string {
+	const structured = parseStructuredTitle(rawTitle);
+	if (!structured) return labeledLine(theme, "title", rawTitle, width, true);
+
+	const prefix = theme.fg("dim", "title".padEnd(LABEL_WIDTH));
+	const metadata = `${structured.type} · ${localDateStamp(startedAt, structured.generatedDate)}`;
+	const bodyWidth = Math.max(0, width - LABEL_WIDTH);
+	const metadataWidth = visibleWidth(metadata);
+	const gap = 2;
+	const topicWidth = bodyWidth - metadataWidth - gap;
+	if (topicWidth < 4) return labeledLine(theme, "title", structured.topic, width, true);
+
+	const topic = truncateToWidth(theme.fg("text", structured.topic), topicWidth, theme.fg("dim", "…"));
+	const padding = " ".repeat(Math.max(gap, bodyWidth - visibleWidth(topic) - metadataWidth));
+	return prefix + topic + padding + theme.fg("dim", metadata);
+}
+
 function createFooter(
 	tui: TUI,
 	theme: Theme,
@@ -101,7 +137,8 @@ function createFooter(
 			const branch = footerData.getGitBranch();
 			const project = branch ? `${formatCwd(ctx.sessionManager.getCwd())} (${branch})` : formatCwd(ctx.sessionManager.getCwd());
 
-			const totals = usageTotals(ctx.sessionManager.getEntries());
+			const entries = ctx.sessionManager.getEntries();
+			const totals = usageTotals(entries);
 			const usageParts = [
 				totals.input > 0 ? `↑${formatCount(totals.input)}` : undefined,
 				totals.output > 0 ? `↓${formatCount(totals.output)}` : undefined,
@@ -134,7 +171,7 @@ function createFooter(
 				labeledLine(theme, "context", contextValue, width),
 				labeledLine(theme, "model", modelValue, width),
 				labeledLine(theme, "status", statuses || "—", width),
-				labeledLine(theme, "title", title, width, true),
+				titleLine(theme, title, entries[0]?.timestamp, width),
 			];
 		},
 	};

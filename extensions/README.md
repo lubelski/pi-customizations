@@ -44,6 +44,7 @@ Keeps a six-row pane below the editor so the input and transcript remain anchore
 
 - while idle, the pane shows project, usage, context, model, extension status, and conversation title on separate lines;
 - the conversation title always occupies the bottom line;
+- structured `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with `TYPE · MMDD` dimmed and right-aligned using the session's local start date;
 - while autocomplete is open, up to five choices plus its scroll indicator replace the session information in the same space;
 - short autocomplete lists are padded to the same height, so filtering does not move the input;
 - the terminal's native cursor customization continues to compose with the custom editor.
