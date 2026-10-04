@@ -30,6 +30,21 @@ ln -s "$HOME/dev/pi-customizations/extensions/native-cursor.ts" \
   "$HOME/.pi/agent/extensions/native-cursor.ts"
 ```
 
+### `recessed-tools.ts`
+
+Makes tool activity secondary to the assistant's prose while preserving access to its details:
+
+- collapsed tool panels show at most seven lines, retaining both their beginning and end;
+- expanding a tool still reveals the complete component;
+- successful tool panels use the quieter pending-tool background;
+- tool titles and output use the theme's dim text color;
+- errors retain their distinct background, and image results are not truncated.
+
+```sh
+ln -s "$HOME/dev/pi-customizations/extensions/recessed-tools.ts" \
+  "$HOME/.pi/agent/extensions/recessed-tools.ts"
+```
+
 ### `stable-autocomplete-height.ts`
 
 Keeps the editor's autocomplete menu at a fixed height while it is open, preventing content below it from moving as results are filtered.
