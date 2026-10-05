@@ -52,7 +52,7 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 
 ## `session-rename.ts`
 
-Automatically names a session from the user's conversation after the first user-agent turn, then refreshes the generated name every five turns. Generated names contain only a concise topic so they remain easy to scan in the footer and session picker. Manual names are never overwritten.
+Automatically names a session from the conversation after the first user-agent turn, then refreshes the generated name every five turns. Generated names contain only a concise topic so they remain easy to scan in the footer and session picker. When the initial request links to a GitHub pull request, Linear ticket, or similar work item, the name uses its human-readable title when the conversation or retrieved tool context provides it instead of relying on the item ID alone. Manual names are never overwritten.
 
 Commands:
 
