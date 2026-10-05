@@ -50,6 +50,26 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 - errors remain visually distinct;
 - image results are not truncated.
 
+## `session-rename.ts`
+
+Automatically names a session from the user's conversation after the first user-agent turn, then refreshes the generated name every five turns. Generated names contain only a concise topic so they remain easy to scan in the footer and session picker. Manual names are never overwritten.
+
+Commands:
+
+```text
+/rename                  Generate a topic now
+/rename "Custom topic"   Set a manual name
+/rename settings         Configure model, thinking level, and timing
+```
+
+Settings are stored in `~/.pi/agent/rename.json`. `afterSteps: 0` disables automatic naming; `everySteps: 0` names a session only once. An empty `model` uses the current session model.
+
+This extension is adapted from [`@moguw/pi-session-rename`](https://github.com/Mieluoxxx/pi-ext/tree/main/extensions/pi-session-rename) under the MIT license. Remove that package before enabling this version so its `/rename` command and automatic naming handler do not run twice:
+
+```sh
+pi remove npm:@moguw/pi-session-rename
+```
+
 ## `stable-input-layout.ts`
 
 Keeps a seven-row pane below the editor so the input and transcript remain anchored:
@@ -59,7 +79,8 @@ Keeps a seven-row pane below the editor so the input and transcript remain ancho
 - visual extensions announce themselves through scoped footer statuses, so only customizations loaded in the current session appear;
 - the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
 - the conversation title always occupies the bottom line;
-- structured `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with metadata such as `REL · Nov 12` dimmed and right-aligned using the session start date in `America/Los_Angeles`;
+- topic-only names remain prominent and left-aligned for scanning;
+- legacy `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with metadata such as `REL · Nov 12` dimmed and right-aligned using the session start date in `America/Los_Angeles`;
 - while autocomplete is open, up to six choices plus its scroll indicator replace the session information in the same space;
 - short autocomplete lists are padded to the same height, so filtering does not move the input;
 - the terminal's native cursor customization continues to compose with the custom editor.

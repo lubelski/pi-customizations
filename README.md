@@ -1,6 +1,6 @@
 # Pi customizations
 
-Personal UI extensions and themes for [Pi](https://github.com/earendil-works/pi).
+Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
 ## Included extensions
 
@@ -8,6 +8,7 @@ Personal UI extensions and themes for [Pi](https://github.com/earendil-works/pi)
 - [`half-bleed.ts`](extensions/half-bleed.ts) — reshapes message panels and reduces tools to a thin left rule
 - [`native-cursor.ts`](extensions/native-cursor.ts) — uses the terminal's native cursor
 - [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
+- [`session-rename.ts`](extensions/session-rename.ts) — automatically names sessions with concise, scannable topics
 - [`stable-input-layout.ts`](extensions/stable-input-layout.ts) — shares a fixed lower pane between session info and autocomplete
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
@@ -20,10 +21,9 @@ See [`themes/README.md`](themes/README.md) for installation and interaction deta
 
 ## Tests
 
-Run `npm test` to check assistant caps, thinking/prose/tool spacing, and compact tool rules without launching Pi.
+Run `npm test` to check transcript layout and session-renaming behavior without launching Pi.
 
 ## Other extensions in use
 
 - [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) — third-party MCP support; replaces Pi's built-in MCP extension
-- [`@moguw/pi-session-rename`](https://github.com/Mieluoxxx/pi-ext/tree/main/extensions/pi-session-rename) — third-party automatic session naming
 - `herdr-agent-state.ts` — Herdr-managed agent status integration
