@@ -7,6 +7,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import {
+	DEFAULT_RENAME_MODEL,
 	THINKING_LEVELS,
 	buildConversationText,
 	extractSessionName,
@@ -26,7 +27,7 @@ import {
 
 const STATUS_KEY = "session-rename";
 const NAMING_TIMEOUT_MS = 60_000;
-const CURRENT_SESSION_MODEL = "(current session model)";
+const DEFAULT_MODEL_OPTION = `(default: ${DEFAULT_RENAME_MODEL})`;
 
 const NAMING_SYSTEM_PROMPT = `You name coding-agent sessions.
 Return only a concise topic that makes the session easy to identify in a list.
@@ -52,9 +53,7 @@ function resolveNamingModel(
 	ctx: ExtensionContext,
 	modelRef: string,
 ): { model: Model<any> | undefined; note?: string } {
-	const ref = modelRef.trim();
-	if (!ref) return { model: ctx.model };
-
+	const ref = modelRef.trim() || DEFAULT_RENAME_MODEL;
 	const parsed = parseModelRef(ref);
 	if (!parsed) return { model: undefined, note: `Invalid model ref: ${ref}` };
 	const model = ctx.modelRegistry.find(parsed.provider, parsed.id);
@@ -129,7 +128,7 @@ async function showRenameSettings(ctx: ExtensionCommandContext): Promise<void> {
 	for (;;) {
 		const config = loadRenameConfig(path).value;
 		const choice = await ctx.ui.select("Session rename settings", [
-			`model: ${config.model || CURRENT_SESSION_MODEL}`,
+			`model: ${config.model || DEFAULT_MODEL_OPTION}`,
 			`thinkingLevel: ${config.thinkingLevel}`,
 			`afterSteps: ${config.afterSteps}`,
 			`everySteps: ${config.everySteps}`,
@@ -139,13 +138,13 @@ async function showRenameSettings(ctx: ExtensionCommandContext): Promise<void> {
 
 		if (choice.startsWith("model:")) {
 			const selected = await ctx.ui.select("Naming model", [
-				CURRENT_SESSION_MODEL,
+				DEFAULT_MODEL_OPTION,
 				...ctx.modelRegistry.getAvailable().map((model) => `${model.provider}/${model.id}`),
 			]);
 			if (selected === undefined) continue;
-			const model = selected === CURRENT_SESSION_MODEL ? "" : selected;
+			const model = selected === DEFAULT_MODEL_OPTION ? "" : selected;
 			saveRenameConfig(path, { model });
-			ctx.ui.notify(`Naming model set to ${model || CURRENT_SESSION_MODEL}`, "info");
+			ctx.ui.notify(`Naming model set to ${model || DEFAULT_MODEL_OPTION}`, "info");
 			continue;
 		}
 

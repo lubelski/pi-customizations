@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import {
 	DEFAULT_RENAME_CONFIG,
+	DEFAULT_RENAME_MODEL,
 	buildConversationText,
 	extractSessionName,
 	getRenameArgumentCompletions,
@@ -103,6 +104,7 @@ test("pending automatic names do not overwrite newer manual state", () => {
 });
 
 test("rename config validates values over defaults", () => {
+	assert.equal(DEFAULT_RENAME_MODEL, "openai-codex/gpt-5.6-luna");
 	assert.deepEqual(parseRenameConfig({}).value, DEFAULT_RENAME_CONFIG);
 
 	const { value, warnings } = parseRenameConfig({

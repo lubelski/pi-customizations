@@ -23,10 +23,12 @@ export type RenameConfig = {
 	thinkingLevel: ThinkingLevelValue;
 };
 
+export const DEFAULT_RENAME_MODEL = "openai-codex/gpt-5.6-luna";
+
 export const DEFAULT_RENAME_CONFIG: RenameConfig = {
 	afterSteps: 1,
 	everySteps: 5,
-	model: "",
+	model: DEFAULT_RENAME_MODEL,
 	thinkingLevel: "low",
 };
 

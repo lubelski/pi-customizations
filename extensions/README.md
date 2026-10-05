@@ -62,7 +62,7 @@ Commands:
 /rename settings         Configure model, thinking level, and timing
 ```
 
-Settings are stored in `~/.pi/agent/rename.json`. `afterSteps: 0` disables automatic naming; `everySteps: 0` names a session only once. An empty `model` uses the current session model.
+Settings are stored in `~/.pi/agent/rename.json`. `afterSteps: 0` disables automatic naming; `everySteps: 0` names a session only once. The default naming model is `openai-codex/gpt-5.6-luna`; an empty `model` falls back to that model.
 
 This extension is adapted from [`@moguw/pi-session-rename`](https://github.com/Mieluoxxx/pi-ext/tree/main/extensions/pi-session-rename) under the MIT license. Remove that package before enabling this version so its `/rename` command and automatic naming handler do not run twice:
 
