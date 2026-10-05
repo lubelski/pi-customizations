@@ -21,18 +21,78 @@ import {
 	stripQuotes,
 } from "../lib/session-rename.ts";
 
-test("conversation text keeps user intent and drops assistant output", () => {
+test("conversation text includes user intent and retrieved title evidence", () => {
 	const conversation = buildConversationText([
 		{
 			type: "message",
-			message: { role: "user", content: [{ type: "text", text: "Port session naming" }] },
+			message: {
+				role: "user",
+				content: [{ type: "text", text: "Review https://github.com/acme/web/pull/42" }],
+			},
 		},
 		{
 			type: "message",
-			message: { role: "assistant", content: [{ type: "text", text: "Working on it" }] },
+			message: {
+				role: "toolResult",
+				toolName: "bash",
+				content: [{ type: "text", text: "Unrelated command output" }],
+			},
+		},
+		{
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: "bash",
+				content: [{ type: "text", text: '"title":"Prevent duplicate budget cards"' }],
+			},
+		},
+		{
+			type: "message",
+			message: {
+				role: "assistant",
+				content: [{ type: "text", text: "I reviewed Prevent duplicate budget cards." }],
+			},
 		},
 	]);
-	assert.equal(conversation, "User: Port session naming");
+	assert.equal(
+		conversation,
+		[
+			"User: Review https://github.com/acme/web/pull/42",
+			'Retrieved tool context (bash): "title":"Prevent duplicate budget cards"',
+			"Assistant: I reviewed Prevent duplicate budget cards.",
+		].join("\n\n"),
+	);
+});
+
+test("ordinary naming context remains limited to user messages", () => {
+	const conversation = buildConversationText([
+		{ type: "message", message: { role: "user", content: "Refactor budget cards" } },
+		{ type: "message", message: { role: "toolResult", content: "title: unrelated output" } },
+		{ type: "message", message: { role: "assistant", content: "Implemented the refactor" } },
+	]);
+	assert.equal(conversation, "User: Refactor budget cards");
+});
+
+test("long naming context preserves the initial request and recent evidence", () => {
+	const branch = [
+		{
+			type: "message",
+			message: { role: "user", content: "Review https://github.com/acme/web/pull/42" },
+		},
+		...Array.from({ length: 10 }, (_, index) => ({
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: "read",
+				content: `title: ${index}:${"x".repeat(8_000)}`,
+			},
+		})),
+	];
+	const conversation = buildConversationText(branch);
+	assert.equal(conversation.startsWith("User: Review https://github.com/acme/web/pull/42"), true);
+	assert.equal(conversation.includes("[Earlier conversation omitted]"), true);
+	assert.equal(conversation.endsWith("x".repeat(2_000)), true);
+	assert.equal(conversation.length <= 60_000, true);
 });
 
 test("generated names are extracted as short topics", () => {

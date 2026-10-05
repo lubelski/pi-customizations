@@ -36,6 +36,7 @@ type BranchEntryLike = {
 	type: string;
 	message?: {
 		role?: string;
+		toolName?: string;
 		content?: unknown;
 	};
 };
@@ -139,18 +140,58 @@ function messageText(content: unknown): string {
 }
 
 const MAX_CONVERSATION_CHARS = 60_000;
+const MAX_MESSAGE_CHARS = 8_000;
+
+function truncateMessage(text: string): string {
+	if (text.length <= MAX_MESSAGE_CHARS) return text;
+	const omitted = "\n[Message middle omitted]\n";
+	const tailLength = 2_000;
+	return `${text.slice(0, MAX_MESSAGE_CHARS - tailLength - omitted.length)}${omitted}${text.slice(-tailLength)}`;
+}
+
+const LINK_PATTERN = /https?:\/\/\S+/i;
+const TITLE_EVIDENCE_PATTERN = /(?:^|[\s"'<])(title|name)(?:[\s"'>]*[:=]|>)/im;
+
+function conversationSection(
+	entry: BranchEntryLike,
+	includeLinkedItemEvidence: boolean,
+): string | undefined {
+	if (entry.type !== "message" || !entry.message) return undefined;
+	const text = messageText(entry.message.content).trim();
+	if (!text) return undefined;
+
+	const content = truncateMessage(text);
+	if (entry.message.role === "user") return `User: ${content}`;
+	if (entry.message.role === "assistant" && includeLinkedItemEvidence) {
+		return `Assistant: ${content}`;
+	}
+	if (
+		entry.message.role === "toolResult" &&
+		includeLinkedItemEvidence &&
+		TITLE_EVIDENCE_PATTERN.test(text)
+	) {
+		const tool = entry.message.toolName ? ` (${entry.message.toolName})` : "";
+		return `Retrieved tool context${tool}: ${content}`;
+	}
+	return undefined;
+}
 
 export function buildConversationText(branch: readonly BranchEntryLike[]): string {
-	const sections: string[] = [];
-	for (const entry of branch) {
-		if (entry.type !== "message" || entry.message?.role !== "user") continue;
-		const text = messageText(entry.message.content).trim();
-		if (text) sections.push(`User: ${text}`);
-	}
-
+	const initialUserText = branch
+		.filter((entry) => entry.type === "message" && entry.message?.role === "user")
+		.map((entry) => messageText(entry.message?.content).trim())
+		.find(Boolean) ?? "";
+	const includeLinkedItemEvidence = LINK_PATTERN.test(initialUserText);
+	const sections = branch
+		.map((entry) => conversationSection(entry, includeLinkedItemEvidence))
+		.filter((section): section is string => section !== undefined);
 	const conversation = sections.join("\n\n");
 	if (conversation.length <= MAX_CONVERSATION_CHARS) return conversation;
-	return `[Earlier conversation omitted]\n${conversation.slice(-MAX_CONVERSATION_CHARS)}`;
+
+	const first = sections[0] ?? "";
+	const marker = "\n\n[Earlier conversation omitted]\n";
+	const tailLength = MAX_CONVERSATION_CHARS - first.length - marker.length;
+	return `${first}${marker}${conversation.slice(-tailLength)}`;
 }
 
 export function sanitizeName(text: string): string | undefined {
