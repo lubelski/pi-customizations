@@ -114,6 +114,8 @@ export default function (pi: ExtensionAPI): void {
 	patchAssistantRendering();
 
 	pi.on("session_start", (_event, ctx) => {
-		if (ctx.mode === "tui") activeTheme = ctx.ui.theme;
+		if (ctx.mode !== "tui") return;
+		activeTheme = ctx.ui.theme;
+		ctx.ui.setStatus("pi-customization:assistant-background", "assistant-bg");
 	});
 }

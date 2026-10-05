@@ -26,6 +26,7 @@ function removeSoftwareCursor(line: string): string {
 export default function (pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
+		ctx.ui.setStatus("pi-customization:native-cursor", "native-cursor");
 
 		// Compose with any editor installed by an extension loaded before this one.
 		const previousFactory = ctx.ui.getEditorComponent();

@@ -126,8 +126,12 @@ function restoreRemovedExperiments(): void {
 	}
 }
 
-export default function (_pi: ExtensionAPI): void {
+export default function (pi: ExtensionAPI): void {
 	restoreRemovedExperiments();
 	patchPanelBackgrounds();
 	for (const ComponentClass of PANEL_COMPONENTS) patchPanelComponent(ComponentClass);
+
+	pi.on("session_start", (_event, ctx) => {
+		if (ctx.mode === "tui") ctx.ui.setStatus("pi-customization:half-bleed", "half-bleed");
+	});
 }

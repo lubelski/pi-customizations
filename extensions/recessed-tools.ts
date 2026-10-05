@@ -102,7 +102,11 @@ function patchToolColors(): void {
 	target.fg = fgWrapper;
 }
 
-export default function (_pi: ExtensionAPI): void {
+export default function (pi: ExtensionAPI): void {
 	patchToolHeight();
 	patchToolColors();
+
+	pi.on("session_start", (_event, ctx) => {
+		if (ctx.mode === "tui") ctx.ui.setStatus("pi-customization:recessed-tools", "recessed-tools");
+	});
 }

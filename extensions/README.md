@@ -50,13 +50,14 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 
 ## `stable-input-layout.ts`
 
-Keeps a six-row pane below the editor so the input and transcript remain anchored:
+Keeps a seven-row pane below the editor so the input and transcript remain anchored:
 
-- while idle, the pane shows unlabeled project, usage, context, model, extension status, and conversation title values on separate lines;
-- when `pi-mcp-adapter` publishes its runtime snapshot, the status row names each enabled MCP server instead of showing only a count;
+- while idle, the pane shows unlabeled project, usage, context, model, MCP servers, active visual extensions, and conversation title values on separate lines;
+- the MCP row names each enabled server without an icon, using `pi-mcp-adapter`'s runtime snapshot or active namespace tools;
+- visual extensions announce themselves through scoped footer statuses, so only customizations loaded in the current session appear;
 - the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
 - the conversation title always occupies the bottom line;
-- structured `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with `TYPE · MMDD` dimmed and right-aligned using the session's local start date;
-- while autocomplete is open, up to five choices plus its scroll indicator replace the session information in the same space;
+- structured `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with metadata such as `REL · Nov 12` dimmed and right-aligned using the session start date in `America/Los_Angeles`;
+- while autocomplete is open, up to six choices plus its scroll indicator replace the session information in the same space;
 - short autocomplete lists are padded to the same height, so filtering does not move the input;
 - the terminal's native cursor customization continues to compose with the custom editor.

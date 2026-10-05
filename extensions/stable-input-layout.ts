@@ -17,9 +17,11 @@ import {
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-const LOWER_PANE_HEIGHT = 6;
+const LOWER_PANE_HEIGHT = 7;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
+const CUSTOMIZATION_STATUS_PREFIX = "pi-customization:";
+const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 
 type AutocompleteEditor = EditorComponent & {
 	getAutocompleteMaxVisible?: () => number;
@@ -91,7 +93,7 @@ function namedMcpStatus(snapshot: McpStatusSnapshot | undefined, fallbackNames: 
 		.map((server) => server.name) ?? [];
 	const names = snapshotNames.length > 0 ? snapshotNames : fallbackNames;
 	const servers = [...new Set(names)].filter(Boolean).sort((a, b) => a.localeCompare(b));
-	return servers.length > 0 ? `🔌 MCP: ${servers.join(", ")}` : undefined;
+	return servers.length > 0 ? `MCP: ${servers.join(", ")}` : undefined;
 }
 
 function usageTotals(entries: readonly SessionEntry[]): UsageTotals {
@@ -175,18 +177,29 @@ function parseStructuredTitle(title: string): StructuredTitle | undefined {
 	return { generatedDate: match[1], type: match[2], topic: match[3].trim() };
 }
 
-function localDateStamp(timestamp: string | undefined, fallback: string): string {
-	if (!timestamp) return fallback;
+function generatedDateLabel(stamp: string): string {
+	const month = Number(stamp.slice(0, 2));
+	const day = Number(stamp.slice(2, 4));
+	if (month < 1 || month > 12 || day < 1 || day > 31) return stamp;
+	return `${new Intl.DateTimeFormat("en-US", { month: "short", timeZone: PACIFIC_TIME_ZONE }).format(new Date(Date.UTC(2000, month - 1, 15)))} ${day}`;
+}
+
+function pacificDateLabel(timestamp: string | undefined, fallback: string): string {
+	if (!timestamp) return generatedDateLabel(fallback);
 	const date = new Date(timestamp);
-	if (Number.isNaN(date.getTime())) return fallback;
-	return `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+	if (Number.isNaN(date.getTime())) return generatedDateLabel(fallback);
+	return new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+		timeZone: PACIFIC_TIME_ZONE,
+	}).format(date);
 }
 
 function titleLine(theme: Theme, rawTitle: string, startedAt: string | undefined, width: number): string {
 	const structured = parseStructuredTitle(rawTitle);
 	if (!structured) return valueLine(theme, rawTitle, width, true);
 
-	const metadata = `${structured.type} · ${localDateStamp(startedAt, structured.generatedDate)}`;
+	const metadata = `${structured.type} · ${pacificDateLabel(startedAt, structured.generatedDate)}`;
 	const metadataWidth = visibleWidth(metadata);
 	const gap = 2;
 	const topicWidth = width - metadataWidth - gap;
@@ -220,8 +233,8 @@ function createFooter(
 			const entries = ctx.sessionManager.getEntries();
 			const totals = usageTotals(entries);
 			const usageParts = [
-				totals.input > 0 ? `↑${formatCount(totals.input)}` : undefined,
-				totals.output > 0 ? `↓${formatCount(totals.output)}` : undefined,
+				totals.input > 0 ? `↑ ${formatCount(totals.input)}` : undefined,
+				totals.output > 0 ? `↓ ${formatCount(totals.output)}` : undefined,
 				totals.cacheRead > 0 ? `R${formatCount(totals.cacheRead)}` : undefined,
 				totals.cacheWrite > 0 ? `W${formatCount(totals.cacheWrite)}` : undefined,
 				totals.cost > 0 ? `$${totals.cost.toFixed(3)}` : undefined,
@@ -238,17 +251,24 @@ function createFooter(
 				: "no model";
 
 			const extensionStatuses = footerData.getExtensionStatuses();
-			const mcpStatus = namedMcpStatus(getMcpStatus(), getMcpServerNames())
-				?? (extensionStatuses.get("mcp") ? sanitize(extensionStatuses.get("mcp")!) : undefined);
-			const statuses = [
-				mcpStatus,
-				...Array.from(extensionStatuses.entries())
-					.filter(([key]) => key !== "mcp")
-					.sort(([a], [b]) => a.localeCompare(b))
-					.map(([, value]) => sanitize(value)),
-			]
-				.filter((value): value is string => Boolean(value))
-				.join("  ");
+			const adapterMcpStatus = extensionStatuses.get("mcp")
+				? sanitize(extensionStatuses.get("mcp")!).replace(/^🔌\s*/u, "")
+				: undefined;
+			const mcpStatus = namedMcpStatus(getMcpStatus(), getMcpServerNames()) ?? adapterMcpStatus;
+			const customizationNames = Array.from(extensionStatuses.entries())
+				.filter(([key]) => key.startsWith(CUSTOMIZATION_STATUS_PREFIX))
+				.sort(([a], [b]) => a.localeCompare(b))
+				.map(([, value]) => sanitize(value))
+				.filter(Boolean);
+			const otherStatuses = Array.from(extensionStatuses.entries())
+				.filter(([key]) => key !== "mcp" && !key.startsWith(CUSTOMIZATION_STATUS_PREFIX))
+				.sort(([a], [b]) => a.localeCompare(b))
+				.map(([, value]) => sanitize(value))
+				.filter(Boolean);
+			const customizations = [
+				customizationNames.length > 0 ? `extensions: ${customizationNames.join(" · ")}` : "extensions: —",
+				...otherStatuses,
+			].join("  ");
 
 			const title = sanitize(ctx.sessionManager.getSessionName() ?? "Untitled conversation");
 
@@ -257,7 +277,8 @@ function createFooter(
 				valueLine(theme, usageParts.join(" ") || "—", width),
 				valueLine(theme, contextValue, width),
 				valueLine(theme, modelValue, width),
-				valueLine(theme, statuses || "—", width),
+				valueLine(theme, mcpStatus || "MCP: —", width),
+				valueLine(theme, customizations, width),
 				titleLine(theme, title, entries[0]?.timestamp, width),
 			];
 		},
@@ -299,7 +320,7 @@ export default function (pi: ExtensionAPI): void {
 				: new CustomEditor(tui, theme, keybindings);
 
 			// InteractiveMode copies its configured value into custom editors after
-			// this factory returns. Keep this experiment's shared pane at six rows.
+			// this factory returns. Keep this experiment's shared pane at seven rows.
 			const setAutocompleteMaxVisible = editor.setAutocompleteMaxVisible?.bind(editor);
 			if (setAutocompleteMaxVisible) {
 				editor.setAutocompleteMaxVisible = () => setAutocompleteMaxVisible(AUTOCOMPLETE_MAX_VISIBLE);
