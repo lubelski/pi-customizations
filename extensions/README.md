@@ -38,6 +38,8 @@ The side edges use standard Unicode Block Elements. The caps and corners require
 
 Removes Pi's reverse-video software cursor while preserving the cursor marker used to position the terminal's native cursor. The extension does not choose the native cursor's shape; that remains a terminal setting.
 
+This extension requires Pi's hardware cursor to be enabled. Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json` or launch Pi with `PI_HARDWARE_CURSOR=1`. Otherwise the extension removes Pi's software cursor while Pi keeps the terminal cursor hidden, leaving no visible cursor.
+
 ## `recessed-tools.ts`
 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
