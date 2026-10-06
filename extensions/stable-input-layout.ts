@@ -21,7 +21,6 @@ const LOWER_PANE_HEIGHT = 7;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 const CUSTOMIZATION_STATUS_PREFIX = "pi-customization:";
-const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 
 type AutocompleteEditor = EditorComponent & {
 	getAutocompleteMaxVisible?: () => number;
@@ -165,51 +164,6 @@ function queueGuidance(theme: Theme, ctx: ExtensionContext, shortcuts: QueueShor
 	return theme.fg(stateColor, state) + theme.fg("dim", controls);
 }
 
-type StructuredTitle = {
-	topic: string;
-	type: string;
-	generatedDate: string;
-};
-
-function parseStructuredTitle(title: string): StructuredTitle | undefined {
-	const match = /^(\d{4})｜([A-Z]{3})｜(.+)$/.exec(title);
-	if (!match) return undefined;
-	return { generatedDate: match[1], type: match[2], topic: match[3].trim() };
-}
-
-function generatedDateLabel(stamp: string): string {
-	const month = Number(stamp.slice(0, 2));
-	const day = Number(stamp.slice(2, 4));
-	if (month < 1 || month > 12 || day < 1 || day > 31) return stamp;
-	return `${new Intl.DateTimeFormat("en-US", { month: "short", timeZone: PACIFIC_TIME_ZONE }).format(new Date(Date.UTC(2000, month - 1, 15)))} ${day}`;
-}
-
-function pacificDateLabel(timestamp: string | undefined, fallback: string): string {
-	if (!timestamp) return generatedDateLabel(fallback);
-	const date = new Date(timestamp);
-	if (Number.isNaN(date.getTime())) return generatedDateLabel(fallback);
-	return new Intl.DateTimeFormat("en-US", {
-		month: "short",
-		day: "numeric",
-		timeZone: PACIFIC_TIME_ZONE,
-	}).format(date);
-}
-
-function titleLine(theme: Theme, rawTitle: string, startedAt: string | undefined, width: number): string {
-	const structured = parseStructuredTitle(rawTitle);
-	if (!structured) return valueLine(theme, rawTitle, width, true);
-
-	const metadata = `${structured.type} · ${pacificDateLabel(startedAt, structured.generatedDate)}`;
-	const metadataWidth = visibleWidth(metadata);
-	const gap = 2;
-	const topicWidth = width - metadataWidth - gap;
-	if (topicWidth < 4) return valueLine(theme, structured.topic, width, true);
-
-	const topic = truncateToWidth(theme.fg("text", structured.topic), topicWidth, theme.fg("dim", "…"));
-	const padding = " ".repeat(Math.max(gap, width - visibleWidth(topic) - metadataWidth));
-	return topic + padding + theme.fg("dim", metadata);
-}
-
 function createFooter(
 	tui: TUI,
 	theme: Theme,
@@ -270,8 +224,6 @@ function createFooter(
 				...otherStatuses,
 			].join("  ");
 
-			const title = sanitize(ctx.sessionManager.getSessionName() ?? "Untitled conversation");
-
 			return [
 				splitLine(theme, theme.fg("dim", project), queueGuidance(theme, ctx, state.shortcuts), width),
 				valueLine(theme, usageParts.join(" ") || "—", width),
@@ -279,7 +231,7 @@ function createFooter(
 				valueLine(theme, modelValue, width),
 				valueLine(theme, mcpStatus || "MCP: —", width),
 				valueLine(theme, customizations, width),
-				titleLine(theme, title, entries[0]?.timestamp, width),
+				"", // Preserve the seven-row dock; the title now lives in the top bar.
 			];
 		},
 	};
