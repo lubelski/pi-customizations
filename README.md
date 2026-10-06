@@ -9,6 +9,7 @@ Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 - [`native-cursor.ts`](extensions/native-cursor.ts) — uses the terminal's native cursor
 - [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
 - [`session-rename.ts`](extensions/session-rename.ts) — automatically names sessions with concise, scannable topics
+- [`session-title-banner.ts`](extensions/session-title-banner.ts) — fixed, centered session title above the fullscreen conversation, with cwd, context token usage, and a muted divider (guarded Pi 1.0.4 layout hook; unsupported renderers show a warning)
 - [`stable-input-layout.ts`](extensions/stable-input-layout.ts) — shares a fixed lower pane between session info and autocomplete
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
