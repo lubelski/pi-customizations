@@ -17,7 +17,7 @@ import {
 	shapePanelCaps,
 	stabilizeThinkingToolSpacing,
 	type ThinkingLayout,
-} from "../lib/pi-customizations/transcript-layout.ts";
+} from "../lib/transcript-layout.ts";
 
 const ORIGINAL_RENDER = Symbol.for("will.pi.assistant-background.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.assistant-background.wrapped-render");
@@ -30,7 +30,9 @@ type DefaultTextStyle = {
 	[key: string]: unknown;
 };
 
-type MarkdownInternals = Markdown & {
+// Explicit runtime seam: intersecting with Markdown would conflict with its private fields.
+type MarkdownInternals = {
+	invalidate(): void;
 	defaultTextStyle?: DefaultTextStyle;
 	paddingY: number;
 	[APPLIED_STYLE]?: (text: string) => string;
@@ -79,7 +81,7 @@ function styleTextBlocks(component: AssistantInternals): void {
 		// does not expose a public assistant-message renderer API.
 		if (!(child instanceof Markdown)) continue;
 
-		const markdown = child as MarkdownInternals;
+		const markdown = child as unknown as MarkdownInternals;
 		if (markdown[APPLIED_STYLE] === assistantBackground && markdown.paddingY === 1) continue;
 		markdown.defaultTextStyle = {
 			...markdown.defaultTextStyle,

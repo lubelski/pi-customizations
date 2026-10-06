@@ -21,7 +21,7 @@ import {
 	shouldApplyAutoName,
 	type RenameConfig,
 	type ThinkingLevelValue,
-} from "../lib/pi-customizations/session-rename.ts";
+} from "../lib/session-rename.ts";
 
 // Adapted from @moguw/pi-session-rename under the MIT license.
 

@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-// Integration test against the installed Pi runtime (no local dependency copy).
-const root = process.env.PI_PACKAGE_ROOT;
-test("title bar reserves fixed title and divider rows and restores the layout on reload", { skip: !root }, async () => {
-	const { createJiti } = await import(`${root}/node_modules/jiti/lib/jiti.mjs`);
-	const tuiPath = `${root}/node_modules/@earendil-works/pi-tui/dist`;
-	const jiti = createJiti(import.meta.url, { alias: { "@earendil-works/pi-tui": `${tuiPath}/index.js` } });
+import { jiti, themeModule, layoutModule, tuiModule } from "./pi-runtime.ts";
+
+test("title bar reserves fixed title and divider rows and restores the layout on reload", async () => {
 	const { default: extension, renderTitleBanner } = await jiti.import("../extensions/session-title-banner.ts");
-	const { getThemeByName } = await import(`${root}/dist/modes/interactive/theme/theme.js`);
-	const { renderLayoutFrame } = await import(`${tuiPath}/layout.js`);
-	const { stripTerminalSequences, visibleWidth } = await import(`${tuiPath}/index.js`);
+	const { getThemeByName } = themeModule;
+	const { renderLayoutFrame } = layoutModule;
+	const { stripTerminalSequences, visibleWidth } = tuiModule;
 	const theme = getThemeByName("dark");
 	const handlers = new Map();
 	extension({ on: (name, handler) => handlers.set(name, handler) });
@@ -20,8 +17,8 @@ test("title bar reserves fixed title and divider rows and restores the layout on
 	let title = "First title";
 	const ctx = {
 		mode: "tui",
-		sessionManager: { getSessionName: () => title, getCwd: () => "" },
-		getContextUsage: () => undefined,
+		sessionManager: { getSessionName: () => title, getCwd: () => "/project" },
+		getContextUsage: () => ({ tokens: 29000, contextWindow: 272000, percent: 10.7 }),
 		ui: {
 			setWidget(_key, factory) { widget?.dispose?.(); widget = factory?.(tui, theme); },
 			notify() { assert.fail("Unexpected unsupported-layout warning"); },
@@ -34,7 +31,7 @@ test("title bar reserves fixed title and divider rows and restores the layout on
 		for (const width of [1, 6, 20, 80]) {
 			const frame = renderLayoutFrame(tui.layoutRoot, width, 24, () => {});
 			assert.equal(visibleWidth(frame.lines[0]), width);
-			assert.equal(frame.lines[0], renderTitleBanner(title, width, theme)[0]);
+			assert.equal(frame.lines[0], renderTitleBanner(title, width, theme, "/project", "29k / 272k - 10.7%")[0]);
 			assert.equal(frame.lines.length, 24);
 			assert.equal(stripTerminalSequences(frame.lines[1]), "─".repeat(width));
 			if (width >= 20) assert.match(stripTerminalSequences(frame.lines[2]), /conversation/);
@@ -51,6 +48,11 @@ test("title bar reserves fixed title and divider rows and restores the layout on
 		assert.equal(stripTerminalSequences(lines[0]), "       Title        ");
 		assert.equal(stripTerminalSequences(lines[1]), "─".repeat(20));
 	}
+
+	const fallback = stripTerminalSequences(renderTitleBanner(undefined, 80, theme, "/project")[0]);
+	assert.ok(fallback.includes("/project"));
+	assert.ok(!fallback.includes("Untitled"));
+	assert.equal(fallback.slice(Math.floor((80 - 8) / 2), Math.floor((80 - 8) / 2) + 8), "/project");
 
 	const decorated = stripTerminalSequences(renderTitleBanner("Title", 80, theme, "/a/very/long/directory/with/a/project", "24k / 200k tok")[0]);
 	assert.equal(visibleWidth(decorated), 80);

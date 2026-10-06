@@ -22,7 +22,22 @@ See [`themes/README.md`](themes/README.md) for installation and interaction deta
 
 ## Tests
 
-Run `npm test` to check transcript layout and session-renaming behavior without launching Pi.
+Use Node 24+ and Python 3 on macOS or Linux:
+
+```sh
+npm ci --ignore-scripts
+npm run check
+```
+
+Checks run in three layers:
+
+- `npm run typecheck` checks every extension against the pinned Pi API, including editor vs. full UI theme types.
+- `npm test` runs helper tests and real Pi component rendering: editor composition in both load orders, themes, widths, autocomplete, cursor preservation, footer, and header lifecycle. Runtime tests are mandatory, not silently skipped.
+- `npm run test:tui` launches the **bundled CLI** in isolated pseudo-terminals with all extensions installed. It checks startup, two reloads, autocomplete, resize, clean exit, and crash logs in fullscreen/regular modes with turquoise/dark/light themes. It uses a temporary HOME/config/cwd, disables MCP and automatic networking, and makes no model calls. Failure output is saved in `test-artifacts/`.
+
+GitHub Actions runs the same checks on Linux and macOS. Pi dependencies are pinned in `package-lock.json`; upgrade them deliberately and rerun the full suite. To probe another installed Pi runtime, set `PI_PACKAGE_ROOT=/absolute/path/to/@earendil-works/pi-coding-agent` for `npm test` and `npm run test:tui` (typechecking still uses local dependencies).
+
+These checks catch API and rendering crashes, not every visual defect or live-provider interaction. Manually inspect streaming/tool-heavy conversations after renderer changes.
 
 ## Other extensions in use
 

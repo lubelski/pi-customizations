@@ -17,7 +17,8 @@ import {
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { mcpServerNamesFromTools } from "../lib/pi-customizations/mcp-footer.ts";
+import { mcpServerNamesFromTools } from "../lib/mcp-footer.ts";
+import { styleDivider } from "../lib/divider-style.ts";
 
 const LOWER_PANE_HEIGHT = 7;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
@@ -216,7 +217,7 @@ function createFooter(
 				.map(([, value]) => sanitize(value))
 				.filter(Boolean);
 			const customizations = [
-				customizationNames.length > 0 ? `extensions: ${customizationNames.join(" · ")}` : "extensions: —",
+				customizationNames.length > 0 ? `EXT: ${customizationNames.join(" · ")}` : "EXT: —",
 				...otherStatuses,
 			].join("  ");
 
@@ -263,9 +264,9 @@ export default function (pi: ExtensionAPI): void {
 				dequeue: shortcutLabel(keybindings.getKeys("app.message.dequeue")[0], "⌥↑"),
 			};
 
-			const editor: AutocompleteEditor = previousFactory
+			const editor = (previousFactory
 				? previousFactory(tui, theme, keybindings)
-				: new CustomEditor(tui, theme, keybindings);
+				: new CustomEditor(tui, theme, keybindings)) as unknown as AutocompleteEditor;
 
 			// InteractiveMode copies its configured value into custom editors after
 			// this factory returns. Keep this experiment's shared pane at seven rows.
@@ -277,6 +278,11 @@ export default function (pi: ExtensionAPI): void {
 
 			const render = editor.render.bind(editor);
 			editor.render = (width: number): string[] => {
+				// Pi updates borderColor for thinking levels; apply our shared divider
+				// color at render time so both input rules stay matched to the header.
+				// The factory receives only EditorTheme. Read the full, current Theme
+				// from ctx.ui so theme changes are also reflected without a reload.
+				editor.borderColor = (text) => styleDivider(ctx.ui.theme, text);
 				const lines = render(width);
 				const autocompleteOpen = editor.isShowingAutocomplete?.() ?? false;
 				if (state.autocompleteOpen !== autocompleteOpen) {

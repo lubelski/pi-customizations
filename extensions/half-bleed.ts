@@ -15,7 +15,7 @@ import {
 	RIGHT_PANEL_EDGE,
 	shapePanelCaps,
 	trimToolRulePadding,
-} from "../lib/pi-customizations/transcript-layout.ts";
+} from "../lib/transcript-layout.ts";
 
 const TOOL_BACKGROUNDS = new Set([
 	"toolPendingBg",
@@ -103,7 +103,7 @@ function patchPanelBackgrounds(): void {
 function restoreRemovedExperiments(): void {
 	// `/reload` keeps patched prototypes alive. Restore prior wrappers before
 	// installing this revision so experiments never stack.
-	const assistant = AssistantMessageComponent.prototype as Renderable & Record<PropertyKey, unknown>;
+	const assistant = AssistantMessageComponent.prototype as unknown as Renderable & Record<PropertyKey, unknown>;
 	const originalRender = assistant[ORIGINAL_RENDER] as Renderable["render"] | undefined;
 	if (originalRender) {
 		assistant.render = originalRender;

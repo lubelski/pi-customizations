@@ -1,6 +1,8 @@
 import { homedir } from "node:os";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, VStack, mixColors, sliceByColumn, stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, VStack, sliceByColumn, stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+
+import { styleDivider } from "../lib/divider-style.ts";
 
 const WIDGET_KEY = "session-title-banner";
 function clean(value: string): string {
@@ -26,7 +28,7 @@ export function renderTitleBanner(title: string | undefined, width: number, them
 	if (width < 1) return [];
 	const name = stripTerminalSequences(title ?? "")
 		.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
-		.replace(/\s+/g, " ").trim() || "Untitled conversation";
+		.replace(/\s+/g, " ").trim() || clean(cwd);
 	const inset = width >= 6 ? 2 : 0;
 	const label = stripTerminalSequences(truncateToWidth(name, Math.max(0, width - inset * 2), "…"));
 	const remaining = Math.max(0, width - visibleWidth(label));
@@ -40,10 +42,9 @@ export function renderTitleBanner(title: string | undefined, width: number, them
 	const line = theme.fg("dim", leftSide + " ".repeat(left - visibleWidth(leftSide)))
 		+ theme.style(label, { fg: "text", bold: true })
 		+ theme.fg("dim", " ".repeat(right - visibleWidth(rightSide)) + rightSide);
-	const dividerColor = mixColors(theme.colors.userMessageBg, theme.colors.accent, 0.12);
 	return [
 		line,
-		theme.style("─".repeat(width), { fg: dividerColor }),
+		styleDivider(theme, "─".repeat(width)),
 	];
 }
 
@@ -74,7 +75,7 @@ export default function sessionTitleBanner(pi: ExtensionAPI): void {
 					const path = cwd === home ? "~" : cwd.startsWith(home + "/") ? "~" + cwd.slice(home.length) : cwd;
 					const context = ctx.getContextUsage();
 					const usage = context
-						? `${context.tokens === null ? "?" : shortCount(context.tokens)} / ${shortCount(context.contextWindow)} tok`
+						? `${context.tokens === null ? "?" : shortCount(context.tokens)} / ${shortCount(context.contextWindow)} - ${context.percent === null ? "?" : context.percent.toFixed(1)}%`
 						: "";
 					return renderTitleBanner(ctx.sessionManager.getSessionName(), width, theme, path, usage);
 				},

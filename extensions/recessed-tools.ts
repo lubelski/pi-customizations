@@ -46,7 +46,7 @@ function setPatch<T extends (...args: any[]) => any>(
 }
 
 function patchToolHeight(): void {
-	const target = ToolExecutionComponent.prototype as PatchTarget<ToolComponent>;
+	const target = ToolExecutionComponent.prototype as unknown as PatchTarget<ToolComponent>;
 	const original = currentBase(target, target.render, ORIGINAL_RENDER, WRAPPED_RENDER);
 
 	const wrapper = function (this: ToolComponent, width: number): string[] {
@@ -69,7 +69,7 @@ function patchToolHeight(): void {
 }
 
 function patchToolColors(): void {
-	const target = Theme.prototype as PatchTarget<{
+	const target = Theme.prototype as unknown as PatchTarget<{
 		bg: Theme["bg"];
 		fg: Theme["fg"];
 	}>;

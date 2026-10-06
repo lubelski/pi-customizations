@@ -9,7 +9,9 @@ mkdir -p "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib"
 for extension in "$HOME/dev/pi-customizations/extensions/"*.ts; do
   ln -sf "$extension" "$HOME/.pi/agent/extensions/$(basename "$extension")"
 done
-ln -sfn "$HOME/dev/pi-customizations/lib" "$HOME/.pi/agent/lib/pi-customizations"
+for helper in "$HOME/dev/pi-customizations/lib/"*.ts; do
+  ln -sf "$helper" "$HOME/.pi/agent/lib/$(basename "$helper")"
+done
 ```
 
 After installing or updating an extension, run `/reload` inside Pi.

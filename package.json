@@ -3,6 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.ts"
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:tui": "python3 tests/tui-smoke.py",
+    "check": "npm run typecheck && npm test && npm run test:tui"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "1.0.4",
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@earendil-works/pi-tui": "1.0.4",
+    "@types/node": "26.6.4",
+    "jiti": "2.7.0",
+    "typescript": "7.0.2"
   }
 }
