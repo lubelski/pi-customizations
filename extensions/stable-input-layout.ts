@@ -17,6 +17,8 @@ import {
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+import { mcpServerNamesFromTools } from "../lib/pi-customizations/mcp-footer.ts";
+
 const LOWER_PANE_HEIGHT = 7;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
@@ -78,12 +80,6 @@ function parseMcpStatusSnapshot(value: unknown): McpStatusSnapshot | undefined {
 	const candidate = value as Partial<McpStatusSnapshot>;
 	if (candidate.version !== 1 || !Array.isArray(candidate.servers)) return undefined;
 	return candidate as McpStatusSnapshot;
-}
-
-function mcpServerNamesFromTools(pi: ExtensionAPI): string[] {
-	return pi.getActiveTools()
-		.map((toolName) => /^mcp__([^_].*)$/u.exec(toolName)?.[1])
-		.filter((name): name is string => Boolean(name));
 }
 
 function namedMcpStatus(snapshot: McpStatusSnapshot | undefined, fallbackNames: string[]): string | undefined {
@@ -306,7 +302,7 @@ export default function (pi: ExtensionAPI): void {
 				state,
 				ctx,
 				() => latestMcpStatus,
-				() => mcpServerNamesFromTools(pi),
+				() => mcpServerNamesFromTools(pi.getAllTools()),
 			);
 		});
 	});

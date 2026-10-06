@@ -75,7 +75,7 @@ pi remove npm:@moguw/pi-session-rename
 Keeps a seven-row pane below the editor so the input and transcript remain anchored:
 
 - while idle, the pane shows unlabeled project, usage, context, model, MCP servers, active visual extensions, and conversation title values on separate lines;
-- the MCP row names each enabled server without an icon, using `pi-mcp-adapter`'s runtime snapshot or active namespace tools;
+- the MCP row names servers with registered, non-hidden tools, including native codemode and deferred tools; names are deduplicated, and legacy `pi-mcp-adapter` snapshots remain supported (this is not a connection-health indicator);
 - visual extensions announce themselves through scoped footer statuses, so only customizations loaded in the current session appear;
 - the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
 - the conversation title always occupies the bottom line;

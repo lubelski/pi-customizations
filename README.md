@@ -26,5 +26,6 @@ Run `npm test` to check transcript layout and session-renaming behavior without 
 
 ## Other extensions in use
 
-- [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) — third-party MCP support; replaces Pi's built-in MCP extension
+MCP uses Pi's native support (`~/.pi/agent/mcp.json` or `.pi/mcp.json`). Remove `pi-mcp-adapter` if installed: registering its `/mcp` command disables native MCP for sessions.
+
 - `herdr-agent-state.ts` — Herdr-managed agent status integration
