@@ -76,13 +76,13 @@ pi remove npm:@moguw/pi-session-rename
 
 Keeps a seven-row pane below the editor so the input and transcript remain anchored:
 
-- while idle, the pane shows unlabeled project, usage, context, model, MCP servers, active visual extensions, and conversation title values on separate lines;
-- the MCP row names servers with registered, non-hidden tools, including native codemode and deferred tools; names are deduplicated, and legacy `pi-mcp-adapter` snapshots remain supported (this is not a connection-health indicator);
+- while idle, the pane shows project, usage, context, model, task links, MCP servers, and active visual extensions;
+- the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for resources such as Linear tickets, local mock or Storybook pages, and pull requests;
+- task links are branch-local session state, survive resume and reload, and can be cleared by setting an empty list;
+- links occupy the left side of the MCP row while MCP and EXT status remain right-aligned;
+- the MCP status names servers with registered, non-hidden tools, including native codemode and deferred tools; names are deduplicated, and legacy `pi-mcp-adapter` snapshots remain supported (this is not a connection-health indicator);
 - visual extensions announce themselves through scoped footer statuses, so only customizations loaded in the current session appear;
 - the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
-- the conversation title always occupies the bottom line;
-- topic-only names remain prominent and left-aligned for scanning;
-- legacy `MMDD｜TYPE｜Topic` names display as a prominent `Topic`, with metadata such as `REL · Nov 12` dimmed and right-aligned using the session start date in `America/Los_Angeles`;
 - while autocomplete is open, up to six choices plus its scroll indicator replace the session information in the same space;
 - short autocomplete lists are padded to the same height, so filtering does not move the input;
 - the terminal's native cursor customization continues to compose with the custom editor.
