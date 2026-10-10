@@ -12,9 +12,13 @@ for (const extensions of [[stableInput], [nativeCursor, stableInput], [stableInp
 	test(`real EditorTheme: ${extensions.map((e) => e === stableInput ? "stable" : "cursor").join(" + ")}`, async () => {
 		const handlers = new Map<string, Function[]>();
 		const statuses = new Map<string, string>();
+		const branchEntries = [];
+		let footerLinksTool;
 		const pi = {
 			on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
 			events: { on() {} },
+			registerTool(tool) { footerLinksTool = tool; },
+			appendEntry(customType, data) { branchEntries.push({ type: "custom", customType, data }); },
 			getAllTools: () => [{ name: "mcp__linear__search", exposure: "codemode" }],
 		};
 		const tui = { terminal: { rows: 24, columns: 100 }, requestRender() {} };
@@ -23,7 +27,11 @@ for (const extensions of [[stableInput], [nativeCursor, stableInput], [stableInp
 		let footer;
 		const ctx = {
 			mode: "tui",
-			sessionManager: { getCwd: () => "/project", getEntries: () => [] },
+			sessionManager: {
+				getCwd: () => "/project",
+				getEntries: () => branchEntries,
+				getBranch: () => branchEntries,
+			},
 			getContextUsage: () => ({ tokens: 29000, contextWindow: 272000, percent: 10.7 }),
 			hasPendingMessages: () => false,
 			isIdle: () => true,
@@ -43,6 +51,7 @@ for (const extensions of [[stableInput], [nativeCursor, stableInput], [stableInp
 			},
 		};
 		for (const extension of extensions) extension(pi);
+		assert.equal(footerLinksTool.name, "set_footer_links");
 		// Pi resets factories on reload, then dispatches session_start to all extensions.
 		for (let reload = 0; reload < 2; reload++) {
 			factory = undefined;
@@ -72,10 +81,23 @@ for (const extensions of [[stableInput], [nativeCursor, stableInput], [stableInp
 					}
 				}
 			}
-			const footerLines = footer.render(100).map(stripTerminalSequences);
+			let footerLines = footer.render(100).map(stripTerminalSequences);
 			assert.equal(footerLines.length, 7);
-			assert.equal(footerLines[4], "MCP: linear");
-			assert.match(footerLines[5], /^EXT:/);
+			assert.ok(footerLines[4].endsWith("MCP: linear"));
+			assert.ok(footerLines[5].trimStart().startsWith("EXT:"));
+			assert.ok(footerLines[4].startsWith(reload === 0 ? " " : "SPM-123 · Storybook"));
+			assert.ok(footerLines[5].startsWith(" "), "EXT status should be right aligned");
+			assert.equal(visibleWidth(footerLines[5]), 100);
+
+			if (reload === 0) {
+				await footerLinksTool.execute("footer-links", { links: [
+					{ label: "SPM-123", url: "https://linear.app/mercury/issue/SPM-123" },
+					{ label: "Storybook", url: "http://localhost:6006/?path=/story/budgets" },
+				] });
+				footerLines = footer.render(100).map(stripTerminalSequences);
+				assert.ok(footerLines[4].startsWith("SPM-123 · Storybook"));
+				assert.ok(footerLines[4].endsWith("MCP: linear"));
+			}
 
 			// Exercise real asynchronous autocomplete, including the dock swap.
 			editor.setAutocompleteProvider({

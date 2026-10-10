@@ -1,6 +1,7 @@
-import type { Usage } from "@earendil-works/pi-ai";
+import { Type, type Usage } from "@earendil-works/pi-ai";
 import {
 	CustomEditor,
+	defineTool,
 	type ExtensionAPI,
 	type ExtensionContext,
 	type ReadonlyFooterDataProvider,
@@ -8,6 +9,7 @@ import {
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import {
+	hyperlink,
 	stripTerminalSequences,
 	truncateToWidth,
 	visibleWidth,
@@ -17,8 +19,15 @@ import {
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { mcpServerNamesFromTools } from "../lib/mcp-footer.ts";
 import { styleDivider } from "../lib/divider-style.ts";
+import {
+	FOOTER_LINKS_ENTRY_TYPE,
+	MAX_FOOTER_LINKS,
+	footerLinksFromBranch,
+	normalizeFooterLinks,
+	type FooterLink,
+} from "../lib/footer-links.ts";
+import { mcpServerNamesFromTools } from "../lib/mcp-footer.ts";
 
 const LOWER_PANE_HEIGHT = 7;
 const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
@@ -138,6 +147,13 @@ function splitLine(theme: Theme, left: string, right: string, width: number): st
 	return leftSide + padding + right;
 }
 
+function footerLinksValue(theme: Theme, links: readonly FooterLink[]): string {
+	const separator = theme.fg("dim", " · ");
+	return links
+		.map(({ label, url }) => hyperlink(theme.fg("accent", theme.underline(label)), url))
+		.join(separator);
+}
+
 function shortcutLabel(key: string | undefined, fallback: string): string {
 	if (!key) return fallback;
 	const labels: Record<string, string> = {
@@ -169,6 +185,7 @@ function createFooter(
 	ctx: ExtensionContext,
 	getMcpStatus: () => McpStatusSnapshot | undefined,
 	getMcpServerNames: () => string[],
+	getFooterLinks: () => readonly FooterLink[],
 ) {
 	const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
@@ -226,8 +243,13 @@ function createFooter(
 				valueLine(theme, usageParts.join(" ") || "—", width),
 				valueLine(theme, contextValue, width),
 				valueLine(theme, modelValue, width),
-				valueLine(theme, mcpStatus || "MCP: —", width),
-				valueLine(theme, customizations, width),
+				splitLine(
+					theme,
+					footerLinksValue(theme, getFooterLinks()),
+					theme.fg("dim", mcpStatus || "MCP: —"),
+					width,
+				),
+				splitLine(theme, "", theme.fg("dim", customizations), width),
 				"", // Preserve the seven-row dock; the title now lives in the top bar.
 			];
 		},
@@ -241,7 +263,35 @@ function createFooter(
  */
 export default function (pi: ExtensionAPI): void {
 	let latestMcpStatus: McpStatusSnapshot | undefined;
+	let footerLinks: FooterLink[] = [];
 	let activeTui: TUI | undefined;
+
+	pi.registerTool(defineTool({
+		name: "set_footer_links",
+		label: "Set footer links",
+		description: "Replace the clickable links shown in this session's footer. Send the complete current list, using short labels for relevant Linear tickets, local mock or Storybook pages, pull requests, and similar task resources. Pass an empty list to clear stale links.",
+		promptSnippet: "Set the session footer's relevant task links.",
+		promptGuidelines: [
+			"Keep relevant Linear tickets, local mock or Storybook pages, and pull requests available with set_footer_links; send the complete current list on each update.",
+		],
+		parameters: Type.Object({
+			links: Type.Array(Type.Object({
+				label: Type.String({ minLength: 1, maxLength: 32, description: "Short display label, such as SPM-123, Mock, Storybook, or PR #123" }),
+				url: Type.String({ minLength: 1, maxLength: 2_048, description: "Absolute http or https URL" }),
+			}, { additionalProperties: false }), { maxItems: MAX_FOOTER_LINKS }),
+		}, { additionalProperties: false }),
+		executionMode: "sequential",
+		annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
+		async execute(_toolCallId, params) {
+			footerLinks = normalizeFooterLinks(params.links);
+			pi.appendEntry(FOOTER_LINKS_ENTRY_TYPE, { version: 1, links: footerLinks });
+			activeTui?.requestRender();
+			const text = footerLinks.length === 0
+				? "Cleared footer links."
+				: `Footer links: ${footerLinks.map((link) => link.label).join(", ")}`;
+			return { content: [{ type: "text", text }], details: { links: footerLinks } };
+		},
+	}));
 
 	pi.events.on(MCP_STATUS_EVENT, (value) => {
 		latestMcpStatus = parseMcpStatusSnapshot(value);
@@ -249,6 +299,7 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		footerLinks = footerLinksFromBranch(ctx.sessionManager.getBranch());
 		if (ctx.mode !== "tui") return;
 
 		const state: LowerPaneState = {
@@ -309,6 +360,7 @@ export default function (pi: ExtensionAPI): void {
 				ctx,
 				() => latestMcpStatus,
 				() => mcpServerNamesFromTools(pi.getAllTools()),
+				() => footerLinks,
 			);
 		});
 	});
