@@ -79,7 +79,7 @@ Keeps a seven-row pane below the editor so the input and transcript remain ancho
 - while idle, the pane shows project, usage, context, model, task links, MCP servers, and active visual extensions;
 - the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for resources such as Linear tickets, local mock or Storybook pages, and pull requests;
 - task links are branch-local session state, survive resume and reload, and can be cleared by setting an empty list;
-- links occupy the left side of the MCP row while MCP and EXT status remain right-aligned;
+- left-side rows show folder (`F:`), branch (`B:`), linked worktree (`WT:`, or `-` for a main checkout/non-repository), usage (`U:`), context (`C:`), and model (`M:`); links occupy the final row without a prefix, while MCP and EXT status remain right-aligned;
 - the MCP status names servers with registered, non-hidden tools, including native codemode and deferred tools; names are deduplicated, and legacy `pi-mcp-adapter` snapshots remain supported (this is not a connection-health indicator);
 - visual extensions announce themselves through scoped footer statuses, so only customizations loaded in the current session appear;
 - the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;

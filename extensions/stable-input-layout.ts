@@ -16,6 +16,7 @@ import {
 	type EditorComponent,
 	type TUI,
 } from "@earendil-works/pi-tui";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
@@ -79,6 +80,19 @@ function formatCwd(cwd: string): string {
 	const insideHome = fromHome === "" || (fromHome !== ".." && !fromHome.startsWith(`..${sep}`) && !isAbsolute(fromHome));
 	if (!insideHome) return cwd;
 	return fromHome === "" ? "~" : `~${sep}${fromHome}`;
+}
+
+/** Resolve once at footer creation, never spawn Git in the render path. */
+export function linkedWorktree(cwd: string): string | undefined {
+	try {
+		const output = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-toplevel"], {
+			cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1000,
+		}).trimEnd().split("\n");
+		const [gitDir, commonDir, root] = output;
+		return gitDir && commonDir && root && gitDir !== commonDir ? root : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function sanitize(text: string): string {
@@ -187,6 +201,7 @@ function createFooter(
 	getMcpServerNames: () => string[],
 	getFooterLinks: () => readonly FooterLink[],
 ) {
+	const worktree = linkedWorktree(ctx.sessionManager.getCwd());
 	const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
 	return {
@@ -196,7 +211,7 @@ function createFooter(
 			if (state.autocompleteOpen) return [];
 
 			const branch = footerData.getGitBranch();
-			const project = branch ? `${formatCwd(ctx.sessionManager.getCwd())} (${branch})` : formatCwd(ctx.sessionManager.getCwd());
+			const folder = sanitize(formatCwd(ctx.sessionManager.getCwd()));
 
 			const entries = ctx.sessionManager.getEntries();
 			const totals = usageTotals(entries);
@@ -239,18 +254,18 @@ function createFooter(
 			].join("  ");
 
 			return [
-				splitLine(theme, theme.fg("dim", project), queueGuidance(theme, ctx, state.shortcuts), width),
-				valueLine(theme, usageParts.join(" ") || "—", width),
-				valueLine(theme, contextValue, width),
-				valueLine(theme, modelValue, width),
+				splitLine(theme, theme.fg("dim", `F: ${folder}`), queueGuidance(theme, ctx, state.shortcuts), width),
+				valueLine(theme, `B: ${branch ? sanitize(branch) : "-"}`, width),
+				valueLine(theme, `WT: ${worktree ? sanitize(formatCwd(worktree)) : "-"}`, width),
+				valueLine(theme, `U: ${usageParts.join(" ") || "—"}`, width),
 				splitLine(
 					theme,
-					footerLinksValue(theme, getFooterLinks()),
+					theme.fg("dim", `C: ${contextValue}`),
 					theme.fg("dim", mcpStatus || "MCP: —"),
 					width,
 				),
-				splitLine(theme, "", theme.fg("dim", customizations), width),
-				"", // Preserve the seven-row dock; the title now lives in the top bar.
+				splitLine(theme, theme.fg("dim", `M: ${modelValue}`), theme.fg("dim", customizations), width),
+				footerLinksValue(theme, getFooterLinks()) ? truncateToWidth(footerLinksValue(theme, getFooterLinks()), width) : "",
 			];
 		},
 	};
