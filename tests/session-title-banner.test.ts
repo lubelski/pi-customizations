@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { jiti, themeModule, layoutModule, tuiModule } from "./pi-runtime.ts";
 
-test("title bar reserves fixed title and divider rows and restores the layout on reload", async () => {
+test("title bar reserves a title between matching divider rows and restores the layout on reload", async () => {
 	const { default: extension, renderTitleBanner } = await jiti.import("../extensions/session-title-banner.ts");
 	const { getThemeByName } = themeModule;
 	const { renderLayoutFrame } = layoutModule;
@@ -31,37 +31,39 @@ test("title bar reserves fixed title and divider rows and restores the layout on
 		for (const width of [1, 6, 20, 80]) {
 			const frame = renderLayoutFrame(tui.layoutRoot, width, 24, () => {});
 			assert.equal(visibleWidth(frame.lines[0]), width);
-			assert.equal(frame.lines[0], renderTitleBanner(title, width, theme, "/project", "29k / 272k - 10.7%")[0]);
+			assert.equal(frame.lines[1], renderTitleBanner(title, width, theme, "/project", "29k / 272k - 10.7%")[1]);
 			assert.equal(frame.lines.length, 24);
-			assert.equal(stripTerminalSequences(frame.lines[1]), "─".repeat(width));
-			if (width >= 20) assert.match(stripTerminalSequences(frame.lines[2]), /conversation/);
+			assert.equal(stripTerminalSequences(frame.lines[0]), "─".repeat(width));
+			assert.equal(frame.lines[0], frame.lines[2]);
+			if (width >= 20) assert.match(stripTerminalSequences(frame.lines[3]), /conversation/);
 		}
 		title = "Renamed";
 		handlers.get("session_info_changed")();
-		assert.match(stripTerminalSequences(renderLayoutFrame(tui.layoutRoot, 80, 24, () => {}).lines[0]), /Renamed/);
+		assert.match(stripTerminalSequences(renderLayoutFrame(tui.layoutRoot, 80, 24, () => {}).lines[1]), /Renamed/);
 		handlers.get("session_shutdown")({}, ctx);
 		assert.equal(tui.layoutRoot, original);
 	}
 	for (const name of ["dark", "light"]) {
 		const themed = getThemeByName(name);
 		const lines = renderTitleBanner("Title", 20, themed);
-		assert.equal(stripTerminalSequences(lines[0]), "       Title        ");
-		assert.equal(stripTerminalSequences(lines[1]), "─".repeat(20));
+		assert.equal(stripTerminalSequences(lines[1]), "       Title        ");
+		assert.equal(stripTerminalSequences(lines[0]), "─".repeat(20));
+		assert.equal(lines[0], lines[2]);
 	}
 
-	const fallback = stripTerminalSequences(renderTitleBanner(undefined, 80, theme, "/project")[0]);
+	const fallback = stripTerminalSequences(renderTitleBanner(undefined, 80, theme, "/project")[1]);
 	assert.ok(fallback.includes("/project"));
 	assert.ok(!fallback.includes("Untitled"));
 	assert.equal(fallback.slice(Math.floor((80 - 8) / 2), Math.floor((80 - 8) / 2) + 8), "/project");
 
-	const decorated = stripTerminalSequences(renderTitleBanner("Title", 80, theme, "/a/very/long/directory/with/a/project", "24k / 200k tok")[0]);
+	const decorated = stripTerminalSequences(renderTitleBanner("Title", 80, theme, "/a/very/long/directory/with/a/project", "24k / 200k tok")[1]);
 	assert.equal(visibleWidth(decorated), 80);
 	assert.equal(decorated.indexOf("Title"), Math.floor((80 - 5) / 2));
 	assert.match(decorated, /^  \/a\/.*\.\..*project/);
 	assert.ok(decorated.endsWith("24k / 200k tok  "));
 	for (const width of [1, 5, 12, 20, 40]) {
-		const plain = stripTerminalSequences(renderTitleBanner("An important title", width, theme)[0]);
-		const withSides = stripTerminalSequences(renderTitleBanner("An important title", width, theme, "/日本語/long/directory", "24k / 200k tok")[0]);
+		const plain = stripTerminalSequences(renderTitleBanner("An important title", width, theme)[1]);
+		const withSides = stripTerminalSequences(renderTitleBanner("An important title", width, theme, "/日本語/long/directory", "24k / 200k tok")[1]);
 		assert.equal(visibleWidth(withSides), width);
 		assert.equal(visibleWidth(withSides.slice(0, withSides.indexOf(plain.trim()))), visibleWidth(plain.slice(0, plain.indexOf(plain.trim()))));
 	}
@@ -78,7 +80,7 @@ test("title bar reserves fixed title and divider rows and restores the layout on
 	for (const width of [0, 1, 2, 5, 6, 20, 80]) {
 		for (const title of [undefined, "日本語 🎉", "\x1b[31mred\ntext"]) {
 			const lines = renderTitleBanner(title, width, theme);
-			assert.equal(lines.length, width ? 2 : 0);
+			assert.equal(lines.length, width ? 3 : 0);
 			for (const line of lines) assert.equal(visibleWidth(line), width);
 		}
 	}

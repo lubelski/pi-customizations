@@ -42,10 +42,8 @@ export function renderTitleBanner(title: string | undefined, width: number, them
 	const line = theme.fg("dim", leftSide + " ".repeat(left - visibleWidth(leftSide)))
 		+ theme.style(label, { fg: "text", bold: true })
 		+ theme.fg("dim", " ".repeat(right - visibleWidth(rightSide)) + rightSide);
-	return [
-		line,
-		styleDivider(theme, "─".repeat(width)),
-	];
+	const divider = styleDivider(theme, "─".repeat(width));
+	return [divider, line, divider];
 }
 
 export default function sessionTitleBanner(pi: ExtensionAPI): void {
@@ -84,7 +82,7 @@ export default function sessionTitleBanner(pi: ExtensionAPI): void {
 			// layoutRoot is an internal Pi 1.0.4 field. Keep the original tree
 			// intact so scrolling, focus, mouse geometry and the input dock survive.
 			const root = new VStack([
-				{ component: banner, basis: 2, grow: 0, shrink: 0, minSize: 2 },
+				{ component: banner, basis: 3, grow: 0, shrink: 0, minSize: 3 },
 				{ component: original, basis: 0, grow: 1, shrink: 1, minSize: 0 },
 			]);
 			host.setLayoutRoot(root);

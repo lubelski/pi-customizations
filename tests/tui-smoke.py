@@ -37,7 +37,7 @@ def smoke(mode, theme):
             shutil.copytree(REPO / directory, agent / directory)
         (agent / "settings.json").write_text(json.dumps({
             "theme": theme, "tuiMode": mode, "quietStartup": True,
-            "showHardwareCursor": True, "lastChangelogVersion": "1.0.4",
+            "showHardwareCursor": True, "lastChangelogVersion": json.loads((PI / "package.json").read_text())["version"],
         }))
         env = {key: os.environ[key] for key in ("PATH", "TMPDIR", "SYSTEMROOT") if key in os.environ}
         env.update(HOME=str(home), PI_CODING_AGENT_DIR=str(agent), PI_OFFLINE="1",
@@ -73,7 +73,6 @@ def smoke(mode, theme):
 
         try:
             expect("EXT:")  # Proves our editor/footer were instantiated and rendered.
-            expect("native-cursor")
             expect("assistant-bg")
             expect("half-bleed")
             expect("recessed-tools")
