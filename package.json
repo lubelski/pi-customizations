@@ -9,9 +9,9 @@
     "check": "npm run typecheck && npm test && npm run test:tui"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "1.0.4",
-    "@earendil-works/pi-coding-agent": "1.0.4",
-    "@earendil-works/pi-tui": "1.0.4",
+    "@earendil-works/pi-ai": "1.2.0",
+    "@earendil-works/pi-coding-agent": "1.2.0",
+    "@earendil-works/pi-tui": "1.2.0",
     "@types/node": "26.6.4",
     "jiti": "2.7.0",
     "typescript": "7.0.2"

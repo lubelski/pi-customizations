@@ -13,6 +13,7 @@ import {
 	stripTerminalSequences,
 	truncateToWidth,
 	visibleWidth,
+	wrapTextWithAnsi,
 	type EditorComponent,
 	type TUI,
 } from "@earendil-works/pi-tui";
@@ -21,6 +22,7 @@ import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import { styleDivider } from "../lib/divider-style.ts";
+import { extensionNamesFromRuntime } from "../lib/extension-footer.ts";
 import {
 	FOOTER_LINKS_ENTRY_TYPE,
 	MAX_FOOTER_LINKS,
@@ -142,23 +144,29 @@ function usageTotals(entries: readonly SessionEntry[]): UsageTotals {
 	return totals;
 }
 
-function valueLine(theme: Theme, value: string, width: number, emphasize = false): string {
-	return truncateToWidth(
-		theme.fg(emphasize ? "text" : "dim", value),
-		width,
-		theme.fg("dim", "…"),
-	);
+/** Stable equal-width columns: neither side can consume the other's space. */
+export function footerColumns(width: number): { left: number; right: number; gap: number } {
+	width = Math.max(0, Math.floor(width));
+	const gap = Math.min(2, width);
+	const right = Math.floor((width - gap) / 2);
+	return { left: width - gap - right, right, gap };
 }
 
-function splitLine(theme: Theme, left: string, right: string, width: number): string {
-	const gap = 2;
-	const rightWidth = visibleWidth(right);
-	const leftWidth = width - rightWidth - gap;
-	if (leftWidth < 4) return truncateToWidth(right, width, theme.fg("dim", "…"));
+export function splitLine(theme: Theme, left: string, right: string, width: number): string {
+	const columns = footerColumns(width);
+	const ellipsis = theme.fg("dim", "…");
+	const leftSide = columns.left ? truncateToWidth(left, columns.left, ellipsis) : "";
+	const rightSide = columns.right ? truncateToWidth(right, columns.right, ellipsis) : "";
+	return leftSide + " ".repeat(columns.left - visibleWidth(leftSide) + columns.gap
+		+ columns.right - visibleWidth(rightSide)) + rightSide;
+}
 
-	const leftSide = truncateToWidth(left, leftWidth, theme.fg("dim", "…"));
-	const padding = " ".repeat(Math.max(gap, width - visibleWidth(leftSide) - rightWidth));
-	return leftSide + padding + right;
+function columnRows(value: string, width: number, height: number): string[] {
+	if (width < 1) return Array(height).fill("");
+	const lines = wrapTextWithAnsi(value, width);
+	return Array.from({ length: height }, (_, index) => index === height - 1
+		? truncateToWidth(lines.slice(index).join(" "), width, "…")
+		: lines[index] ?? "");
 }
 
 function footerLinksValue(theme: Theme, links: readonly FooterLink[]): string {
@@ -200,6 +208,7 @@ function createFooter(
 	getMcpStatus: () => McpStatusSnapshot | undefined,
 	getMcpServerNames: () => string[],
 	getFooterLinks: () => readonly FooterLink[],
+	getExtensionNames: (statuses: ReadonlyMap<string, string>) => string[],
 ) {
 	const worktree = linkedWorktree(ctx.sessionManager.getCwd());
 	const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
@@ -218,9 +227,9 @@ function createFooter(
 			const usageParts = [
 				totals.input > 0 ? `↑ ${formatCount(totals.input)}` : undefined,
 				totals.output > 0 ? `↓ ${formatCount(totals.output)}` : undefined,
-				totals.cacheRead > 0 ? `R${formatCount(totals.cacheRead)}` : undefined,
-				totals.cacheWrite > 0 ? `W${formatCount(totals.cacheWrite)}` : undefined,
-				totals.cost > 0 ? `$${totals.cost.toFixed(3)}` : undefined,
+				totals.cacheRead > 0 ? `R ${formatCount(totals.cacheRead)}` : undefined,
+				totals.cacheWrite > 0 ? `W ${formatCount(totals.cacheWrite)}` : undefined,
+				totals.cost > 0 ? `$ ${totals.cost.toFixed(3)}` : undefined,
 			].filter((part): part is string => part !== undefined);
 
 			const context = ctx.getContextUsage();
@@ -238,11 +247,7 @@ function createFooter(
 				? sanitize(extensionStatuses.get("mcp")!).replace(/^🔌\s*/u, "")
 				: undefined;
 			const mcpStatus = namedMcpStatus(getMcpStatus(), getMcpServerNames()) ?? adapterMcpStatus;
-			const customizationNames = Array.from(extensionStatuses.entries())
-				.filter(([key]) => key.startsWith(CUSTOMIZATION_STATUS_PREFIX))
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([, value]) => sanitize(value))
-				.filter(Boolean);
+			const customizationNames = getExtensionNames(extensionStatuses);
 			const otherStatuses = Array.from(extensionStatuses.entries())
 				.filter(([key]) => key !== "mcp" && !key.startsWith(CUSTOMIZATION_STATUS_PREFIX))
 				.sort(([a], [b]) => a.localeCompare(b))
@@ -253,19 +258,22 @@ function createFooter(
 				...otherStatuses,
 			].join("  ");
 
+			const columns = footerColumns(width);
+			const queueRows = columnRows(queueGuidance(theme, ctx, state.shortcuts), columns.right, 3);
+			const extensionRows = columnRows(customizations, columns.right, 2);
 			return [
-				splitLine(theme, theme.fg("dim", `F: ${folder}`), queueGuidance(theme, ctx, state.shortcuts), width),
-				valueLine(theme, `B: ${branch ? sanitize(branch) : "-"}`, width),
-				valueLine(theme, `WT: ${worktree ? sanitize(formatCwd(worktree)) : "-"}`, width),
-				valueLine(theme, `U: ${usageParts.join(" ") || "—"}`, width),
+				splitLine(theme, theme.fg("dim", `F: ${folder}`), queueRows[0], width),
+				splitLine(theme, theme.fg("dim", `B: ${branch ? sanitize(branch) : "-"}`), queueRows[1], width),
+				splitLine(theme, theme.fg("dim", `WT: ${worktree ? sanitize(formatCwd(worktree)) : "-"}`), queueRows[2], width),
+				splitLine(theme, theme.fg("dim", `U: ${usageParts.join(" · ") || "—"}`), "", width),
 				splitLine(
 					theme,
 					theme.fg("dim", `C: ${contextValue}`),
 					theme.fg("dim", mcpStatus || "MCP: —"),
 					width,
 				),
-				splitLine(theme, theme.fg("dim", `M: ${modelValue}`), theme.fg("dim", customizations), width),
-				footerLinksValue(theme, getFooterLinks()) ? truncateToWidth(footerLinksValue(theme, getFooterLinks()), width) : "",
+				splitLine(theme, theme.fg("dim", `M: ${modelValue}`), theme.fg("dim", extensionRows[0]), width),
+				splitLine(theme, footerLinksValue(theme, getFooterLinks()), theme.fg("dim", extensionRows[1]), width),
 			];
 		},
 	};
@@ -376,6 +384,7 @@ export default function (pi: ExtensionAPI): void {
 				() => latestMcpStatus,
 				() => mcpServerNamesFromTools(pi.getAllTools()),
 				() => footerLinks,
+				(statuses) => extensionNamesFromRuntime(pi.getAllTools(), pi.getActiveTools(), pi.getCommands(), statuses),
 			);
 		});
 	});
