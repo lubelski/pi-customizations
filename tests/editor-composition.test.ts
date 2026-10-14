@@ -84,9 +84,12 @@ for (const extensions of [[stableInput], [nativeCursor, stableInput], [stableInp
 			let footerLines = footer.render(100).map(stripTerminalSequences);
 			assert.equal(footerLines.length, 7);
 			assert.ok(footerLines[4].endsWith("MCP: linear"));
-			assert.ok(footerLines[5].trimStart().startsWith("EXT:"));
-			assert.ok(footerLines[4].startsWith(reload === 0 ? " " : "SPM-123 · Storybook"));
-			assert.ok(footerLines[5].startsWith(" "), "EXT status should be right aligned");
+			assert.ok(footerLines[5].includes("EXT:"));
+			assert.ok(footerLines[6].startsWith(reload === 0 ? "" : "SPM-123 · Storybook"));
+			const wideFooter = footer.render(240).map(stripTerminalSequences);
+			for (const [index, prefix] of ["F: /project", "B: main", "WT: -", "U: ", "C: ", "M: "].entries()) {
+				assert.ok(wideFooter[index].startsWith(prefix));
+			}
 			assert.equal(visibleWidth(footerLines[5]), 100);
 
 			if (reload === 0) {
@@ -95,7 +98,7 @@ for (const extensions of [[stableInput], [nativeCursor, stableInput], [stableInp
 					{ label: "Storybook", url: "http://localhost:6006/?path=/story/budgets" },
 				] });
 				footerLines = footer.render(100).map(stripTerminalSequences);
-				assert.ok(footerLines[4].startsWith("SPM-123 · Storybook"));
+				assert.ok(footerLines[6].startsWith("SPM-123 · Storybook"));
 				assert.ok(footerLines[4].endsWith("MCP: linear"));
 			}
 
