@@ -18,6 +18,7 @@ import {
 	type TUI,
 } from "@earendil-works/pi-tui";
 import { execFileSync } from "node:child_process";
+import { statSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
@@ -84,7 +85,7 @@ function formatCwd(cwd: string): string {
 	return fromHome === "" ? "~" : `~${sep}${fromHome}`;
 }
 
-/** Resolve once at footer creation, never spawn Git in the render path. */
+/** Inspect Git metadata outside the footer render path. */
 export function linkedWorktree(cwd: string): string | undefined {
 	try {
 		const output = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-toplevel"], {
@@ -95,6 +96,34 @@ export function linkedWorktree(cwd: string): string | undefined {
 	} catch {
 		return undefined;
 	}
+}
+
+const WORKSPACE_ENTRY_TYPE = "pi-customization:workspace";
+type Workspace = { path: string; branch?: string; worktree?: string };
+
+function inspectWorkspace(path: string): Workspace {
+	if (!isAbsolute(path) || !statSync(path).isDirectory()) {
+		throw new Error("Workspace must be an existing absolute directory path.");
+	}
+	path = resolve(path);
+	let branch: string | undefined;
+	try {
+		branch = execFileSync("git", ["symbolic-ref", "--short", "HEAD"], {
+			cwd: path, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1000,
+		}).trim();
+	} catch { /* Detached HEAD and non-repositories have no branch name. */ }
+	return { path, branch, worktree: linkedWorktree(path) };
+}
+
+function restoreWorkspace(entries: readonly SessionEntry[]): Workspace | undefined {
+	for (let index = entries.length - 1; index >= 0; index--) {
+		const entry = entries[index];
+		if (entry.type !== "custom" || entry.customType !== WORKSPACE_ENTRY_TYPE) continue;
+		const data = entry.data as { version?: unknown; path?: unknown } | undefined;
+		if (data?.version !== 1 || typeof data.path !== "string") return undefined;
+		try { return inspectWorkspace(data.path); } catch { return undefined; }
+	}
+	return undefined;
 }
 
 function sanitize(text: string): string {
@@ -208,6 +237,7 @@ function createFooter(
 	getMcpStatus: () => McpStatusSnapshot | undefined,
 	getMcpServerNames: () => string[],
 	getFooterLinks: () => readonly FooterLink[],
+	getWorkspace: () => Workspace | undefined,
 	getExtensionNames: (statuses: ReadonlyMap<string, string>) => string[],
 ) {
 	const worktree = linkedWorktree(ctx.sessionManager.getCwd());
@@ -219,8 +249,10 @@ function createFooter(
 		render(width: number): string[] {
 			if (state.autocompleteOpen) return [];
 
-			const branch = footerData.getGitBranch();
-			const folder = sanitize(formatCwd(ctx.sessionManager.getCwd()));
+			const workspace = getWorkspace();
+			const branch = workspace ? workspace.branch : footerData.getGitBranch();
+			const folder = sanitize(formatCwd(workspace?.path ?? ctx.sessionManager.getCwd()));
+			const activeWorktree = workspace ? workspace.worktree : worktree;
 
 			const entries = ctx.sessionManager.getEntries();
 			const totals = usageTotals(entries);
@@ -264,7 +296,7 @@ function createFooter(
 			return [
 				splitLine(theme, theme.fg("dim", `F: ${folder}`), queueRows[0], width),
 				splitLine(theme, theme.fg("dim", `B: ${branch ? sanitize(branch) : "-"}`), queueRows[1], width),
-				splitLine(theme, theme.fg("dim", `WT: ${worktree ? sanitize(formatCwd(worktree)) : "-"}`), queueRows[2], width),
+				splitLine(theme, theme.fg("dim", `WT: ${activeWorktree ? sanitize(formatCwd(activeWorktree)) : "-"}`), queueRows[2], width),
 				splitLine(theme, theme.fg("dim", `U: ${usageParts.join(" · ") || "—"}`), "", width),
 				splitLine(
 					theme,
@@ -288,6 +320,31 @@ export default function (pi: ExtensionAPI): void {
 	let latestMcpStatus: McpStatusSnapshot | undefined;
 	let footerLinks: FooterLink[] = [];
 	let activeTui: TUI | undefined;
+	let workspace: Workspace | undefined;
+
+	pi.registerTool(defineTool({
+		name: "set_task_workspace",
+		label: "Set task workspace",
+		description: "Set the task directory displayed by the footer's F, B, and WT rows. Use an existing absolute directory, or null to return to the session directory. Display only: does not change tool cwd or file path resolution.",
+		promptSnippet: "Keep the footer's task workspace current when working outside the session directory.",
+		promptGuidelines: ["Call set_task_workspace after claiming or switching to a worktree or another task directory. This only updates the display; continue using explicit paths for tools. Clear it with null when returning to the session directory. Do not switch it for incidental reads or a subagent's separate workspace."],
+		parameters: Type.Object({ path: Type.Union([Type.String({ minLength: 1 }), Type.Null()]) }, { additionalProperties: false }),
+		executionMode: "sequential",
+		annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
+		async execute(_toolCallId, params) {
+			const next = params.path === null ? undefined : inspectWorkspace(params.path);
+			pi.appendEntry(WORKSPACE_ENTRY_TYPE, { version: 1, path: next?.path ?? null });
+			workspace = next;
+			activeTui?.requestRender();
+			return { content: [{ type: "text", text: next ? `Footer workspace: ${next.path}. Tool cwd is unchanged.` : "Footer restored to session directory." }], details: { path: next?.path ?? null } };
+		},
+	}));
+
+	pi.on("agent_end", () => {
+		if (!workspace) return;
+		try { workspace = inspectWorkspace(workspace.path); } catch { workspace = undefined; }
+		activeTui?.requestRender();
+	});
 
 	pi.registerTool(defineTool({
 		name: "set_footer_links",
@@ -323,6 +380,7 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		footerLinks = footerLinksFromBranch(ctx.sessionManager.getBranch());
+		workspace = restoreWorkspace(ctx.sessionManager.getBranch());
 		if (ctx.mode !== "tui") return;
 
 		const state: LowerPaneState = {
@@ -384,6 +442,7 @@ export default function (pi: ExtensionAPI): void {
 				() => latestMcpStatus,
 				() => mcpServerNamesFromTools(pi.getAllTools()),
 				() => footerLinks,
+				() => workspace,
 				(statuses) => extensionNamesFromRuntime(pi.getAllTools(), pi.getActiveTools(), pi.getCommands(), statuses),
 			);
 		});
