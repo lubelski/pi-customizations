@@ -37,7 +37,7 @@ def smoke(mode, theme):
             shutil.copytree(REPO / directory, agent / directory)
         (agent / "settings.json").write_text(json.dumps({
             "theme": theme, "tuiMode": mode, "quietStartup": True,
-            "showHardwareCursor": True, "lastChangelogVersion": "1.0.4",
+            "showHardwareCursor": True, "lastChangelogVersion": json.loads((PI / "package.json").read_text())["version"],
         }))
         env = {key: os.environ[key] for key in ("PATH", "TMPDIR", "SYSTEMROOT") if key in os.environ}
         env.update(HOME=str(home), PI_CODING_AGENT_DIR=str(agent), PI_OFFLINE="1",
@@ -72,16 +72,21 @@ def smoke(mode, theme):
             raise AssertionError(f"Timed out waiting for {text!r}")
 
         try:
-            expect("EXT:")  # Proves our editor/footer were instantiated and rendered.
-            expect("native-cursor")
+            expect("alt+i to expand")  # Proves the collapsed footer rendered.
+            start = len(output)
+            os.write(master, b"\x1bi")  # Alt+I expands the inventory.
+            expect("alt+i to collapse", start)
             expect("assistant-bg")
             expect("half-bleed")
             expect("recessed-tools")
+            start = len(output)
+            os.write(master, b"\x1bi")
+            expect("alt+i to expand", start)
             for _ in range(2):
                 start = len(output)
                 os.write(master, b"/reload\r")
                 expect("Reloaded keybindings", start)
-                expect("EXT:", start)
+                expect("alt+i to expand", start)
             # Trigger autocomplete and render at narrow and wide sizes.
             start = len(output)
             os.write(master, b"/ren")

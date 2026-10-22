@@ -194,6 +194,13 @@ export function buildConversationText(branch: readonly BranchEntryLike[]): strin
 	return `${first}${marker}${conversation.slice(-tailLength)}`;
 }
 
+/** Keep the title outside the conversation budget so truncation cannot discard it. */
+export function buildNamingContext(conversation: string, previousTitle?: string): string {
+	const title = previousTitle ? sanitizeName(previousTitle) : undefined;
+	const anchor = title ? `Previous session title (data): ${JSON.stringify(title)}\n\n` : "";
+	return `${anchor}Conversation:\n${conversation}`;
+}
+
 export function sanitizeName(text: string): string | undefined {
 	const [firstLine = ""] = text.trim().split(/\r?\n/);
 	const name = firstLine.replace(/\s+/g, " ").slice(0, 120).trim();

@@ -13,13 +13,16 @@ import {
 	stripTerminalSequences,
 	truncateToWidth,
 	visibleWidth,
+	wrapTextWithAnsi,
 	type EditorComponent,
 	type TUI,
 } from "@earendil-works/pi-tui";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import { styleDivider } from "../lib/divider-style.ts";
+import { extensionNamesFromRuntime } from "../lib/extension-footer.ts";
 import {
 	FOOTER_LINKS_ENTRY_TYPE,
 	MAX_FOOTER_LINKS,
@@ -62,6 +65,7 @@ type QueueShortcuts = {
 
 type LowerPaneState = {
 	autocompleteOpen: boolean;
+	inventoryExpanded: boolean;
 	shortcuts: QueueShortcuts;
 };
 
@@ -81,6 +85,19 @@ function formatCwd(cwd: string): string {
 	return fromHome === "" ? "~" : `~${sep}${fromHome}`;
 }
 
+/** Resolve once at footer creation, never spawn Git in the render path. */
+export function linkedWorktree(cwd: string): string | undefined {
+	try {
+		const output = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-toplevel"], {
+			cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1000,
+		}).trimEnd().split("\n");
+		const [gitDir, commonDir, root] = output;
+		return gitDir && commonDir && root && gitDir !== commonDir ? root : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function sanitize(text: string): string {
 	return stripTerminalSequences(text).replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
 }
@@ -92,13 +109,12 @@ function parseMcpStatusSnapshot(value: unknown): McpStatusSnapshot | undefined {
 	return candidate as McpStatusSnapshot;
 }
 
-function namedMcpStatus(snapshot: McpStatusSnapshot | undefined, fallbackNames: string[]): string | undefined {
+function namedMcpServers(snapshot: McpStatusSnapshot | undefined, fallbackNames: string[]): string[] {
 	const snapshotNames = snapshot?.servers
 		.filter((server) => !server.disabled)
 		.map((server) => server.name) ?? [];
-	const names = snapshotNames.length > 0 ? snapshotNames : fallbackNames;
-	const servers = [...new Set(names)].filter(Boolean).sort((a, b) => a.localeCompare(b));
-	return servers.length > 0 ? `MCP: ${servers.join(", ")}` : undefined;
+	const names = snapshot ? snapshotNames : fallbackNames;
+	return [...new Set(names.map(sanitize))].filter(Boolean).sort((a, b) => a.localeCompare(b));
 }
 
 function usageTotals(entries: readonly SessionEntry[]): UsageTotals {
@@ -128,23 +144,29 @@ function usageTotals(entries: readonly SessionEntry[]): UsageTotals {
 	return totals;
 }
 
-function valueLine(theme: Theme, value: string, width: number, emphasize = false): string {
-	return truncateToWidth(
-		theme.fg(emphasize ? "text" : "dim", value),
-		width,
-		theme.fg("dim", "…"),
-	);
+/** Stable equal-width columns: neither side can consume the other's space. */
+export function footerColumns(width: number): { left: number; right: number; gap: number } {
+	width = Math.max(0, Math.floor(width));
+	const gap = Math.min(2, width);
+	const right = Math.floor((width - gap) / 2);
+	return { left: width - gap - right, right, gap };
 }
 
-function splitLine(theme: Theme, left: string, right: string, width: number): string {
-	const gap = 2;
-	const rightWidth = visibleWidth(right);
-	const leftWidth = width - rightWidth - gap;
-	if (leftWidth < 4) return truncateToWidth(right, width, theme.fg("dim", "…"));
+export function splitLine(theme: Theme, left: string, right: string, width: number): string {
+	const columns = footerColumns(width);
+	const ellipsis = theme.fg("dim", "…");
+	const leftSide = columns.left ? truncateToWidth(left, columns.left, ellipsis) : "";
+	const rightSide = columns.right ? truncateToWidth(right, columns.right, ellipsis) : "";
+	return leftSide + " ".repeat(columns.left - visibleWidth(leftSide) + columns.gap
+		+ columns.right - visibleWidth(rightSide)) + rightSide;
+}
 
-	const leftSide = truncateToWidth(left, leftWidth, theme.fg("dim", "…"));
-	const padding = " ".repeat(Math.max(gap, width - visibleWidth(leftSide) - rightWidth));
-	return leftSide + padding + right;
+function columnRows(value: string, width: number, height: number): string[] {
+	if (width < 1) return Array(height).fill("");
+	const lines = wrapTextWithAnsi(value, width);
+	return Array.from({ length: height }, (_, index) => index === height - 1
+		? truncateToWidth(lines.slice(index).join(" "), width, "…")
+		: lines[index] ?? "");
 }
 
 function footerLinksValue(theme: Theme, links: readonly FooterLink[]): string {
@@ -186,7 +208,9 @@ function createFooter(
 	getMcpStatus: () => McpStatusSnapshot | undefined,
 	getMcpServerNames: () => string[],
 	getFooterLinks: () => readonly FooterLink[],
+	getExtensionNames: (statuses: ReadonlyMap<string, string>) => string[],
 ) {
+	const worktree = linkedWorktree(ctx.sessionManager.getCwd());
 	const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
 	return {
@@ -196,16 +220,16 @@ function createFooter(
 			if (state.autocompleteOpen) return [];
 
 			const branch = footerData.getGitBranch();
-			const project = branch ? `${formatCwd(ctx.sessionManager.getCwd())} (${branch})` : formatCwd(ctx.sessionManager.getCwd());
+			const folder = sanitize(formatCwd(ctx.sessionManager.getCwd()));
 
 			const entries = ctx.sessionManager.getEntries();
 			const totals = usageTotals(entries);
 			const usageParts = [
 				totals.input > 0 ? `↑ ${formatCount(totals.input)}` : undefined,
 				totals.output > 0 ? `↓ ${formatCount(totals.output)}` : undefined,
-				totals.cacheRead > 0 ? `R${formatCount(totals.cacheRead)}` : undefined,
-				totals.cacheWrite > 0 ? `W${formatCount(totals.cacheWrite)}` : undefined,
-				totals.cost > 0 ? `$${totals.cost.toFixed(3)}` : undefined,
+				totals.cacheRead > 0 ? `R ${formatCount(totals.cacheRead)}` : undefined,
+				totals.cacheWrite > 0 ? `W ${formatCount(totals.cacheWrite)}` : undefined,
+				totals.cost > 0 ? `$ ${totals.cost.toFixed(3)}` : undefined,
 			].filter((part): part is string => part !== undefined);
 
 			const context = ctx.getContextUsage();
@@ -222,42 +246,51 @@ function createFooter(
 			const adapterMcpStatus = extensionStatuses.get("mcp")
 				? sanitize(extensionStatuses.get("mcp")!).replace(/^🔌\s*/u, "")
 				: undefined;
-			const mcpStatus = namedMcpStatus(getMcpStatus(), getMcpServerNames()) ?? adapterMcpStatus;
-			const customizationNames = Array.from(extensionStatuses.entries())
-				.filter(([key]) => key.startsWith(CUSTOMIZATION_STATUS_PREFIX))
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([, value]) => sanitize(value))
-				.filter(Boolean);
+			const snapshot = getMcpStatus();
+			const servers = namedMcpServers(snapshot, getMcpServerNames());
+			const customizationNames = getExtensionNames(extensionStatuses);
 			const otherStatuses = Array.from(extensionStatuses.entries())
 				.filter(([key]) => key !== "mcp" && !key.startsWith(CUSTOMIZATION_STATUS_PREFIX))
 				.sort(([a], [b]) => a.localeCompare(b))
 				.map(([, value]) => sanitize(value))
 				.filter(Boolean);
-			const customizations = [
-				customizationNames.length > 0 ? `EXT: ${customizationNames.join(" · ")}` : "EXT: —",
-				...otherStatuses,
-			].join("  ");
+			const inventory = [
+				...servers.map((name) => {
+					const status = snapshot?.servers.find((server) => sanitize(server.name) === name)?.status;
+					return `  MCP: ${name}${status ? ` — ${sanitize(status)}` : ""}`;
+				}),
+				...customizationNames.map((name) => `  EXT: ${sanitize(name)}`),
+				...(adapterMcpStatus ? [`  MCP status: ${adapterMcpStatus}`] : []),
+				...otherStatuses.map((status) => `  Status: ${status}`),
+			];
+			const summary = `E: ${servers.length}x MCP servers, ${customizationNames.length}x extensions (alt+i to ${state.inventoryExpanded ? "collapse" : "expand"})`;
+			const inventoryRows = state.inventoryExpanded
+				? (inventory.length ? inventory : ["  No discoverable MCP servers or extensions."])
+					.flatMap((line) => width > 0 ? wrapTextWithAnsi(theme.fg("dim", line), width) : [""])
+				: [];
 
+			const columns = footerColumns(width);
+			const queueRows = columnRows(queueGuidance(theme, ctx, state.shortcuts), columns.right, 3);
+			const wrappedLinks = columnRows(footerLinksValue(theme, getFooterLinks()), columns.right, 3)
+				.filter((line) => visibleWidth(line) > 0);
+			// Bottom-anchor above the final summary/relay row, growing upward.
+			const linkRows = [...Array<string>(3 - wrappedLinks.length).fill(""), ...wrappedLinks];
 			return [
-				splitLine(theme, theme.fg("dim", project), queueGuidance(theme, ctx, state.shortcuts), width),
-				valueLine(theme, usageParts.join(" ") || "—", width),
-				valueLine(theme, contextValue, width),
-				valueLine(theme, modelValue, width),
-				splitLine(
-					theme,
-					footerLinksValue(theme, getFooterLinks()),
-					theme.fg("dim", mcpStatus || "MCP: —"),
-					width,
-				),
-				splitLine(theme, "", theme.fg("dim", customizations), width),
-				"", // Preserve the seven-row dock; the title now lives in the top bar.
+				splitLine(theme, theme.fg("dim", `F: ${folder}`), queueRows[0], width),
+				splitLine(theme, theme.fg("dim", `B: ${branch ? sanitize(branch) : "-"}`), queueRows[1], width),
+				splitLine(theme, theme.fg("dim", `WT: ${worktree ? sanitize(formatCwd(worktree)) : "-"}`), queueRows[2], width),
+				splitLine(theme, theme.fg("dim", `U: ${usageParts.join(" · ") || "—"}`), linkRows[0], width),
+				splitLine(theme, theme.fg("dim", `C: ${contextValue}`), linkRows[1], width),
+				splitLine(theme, theme.fg("dim", `M: ${modelValue}`), linkRows[2], width),
+				truncateToWidth(theme.fg("dim", summary), width, "…"),
+				...inventoryRows,
 			];
 		},
 	};
 }
 
 /**
- * Keep the lower pane a constant height. Session information occupies it while
+ * Keep the collapsed lower pane a constant height. Session information occupies it while
  * the editor is idle; autocomplete replaces that information instead of
  * pushing the editor and transcript upward.
  */
@@ -265,6 +298,20 @@ export default function (pi: ExtensionAPI): void {
 	let latestMcpStatus: McpStatusSnapshot | undefined;
 	let footerLinks: FooterLink[] = [];
 	let activeTui: TUI | undefined;
+	let activeState: LowerPaneState | undefined;
+	const toggleInventory = () => {
+		if (!activeState) return;
+		activeState.inventoryExpanded = !activeState.inventoryExpanded;
+		activeTui?.requestRender();
+	};
+	pi.registerShortcut("alt+i", {
+		description: "Expand/collapse footer MCP and extension inventory",
+		handler: async () => toggleInventory(),
+	});
+	pi.registerCommand("inventory", {
+		description: "Expand/collapse footer MCP and extension inventory",
+		handler: async () => toggleInventory(),
+	});
 
 	pi.registerTool(defineTool({
 		name: "set_footer_links",
@@ -304,8 +351,10 @@ export default function (pi: ExtensionAPI): void {
 
 		const state: LowerPaneState = {
 			autocompleteOpen: false,
+			inventoryExpanded: false,
 			shortcuts: { submit: "↵", followUp: "⌥↵", dequeue: "⌥↑" },
 		};
+		activeState = state;
 		const previousFactory = ctx.ui.getEditorComponent();
 
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
@@ -320,7 +369,7 @@ export default function (pi: ExtensionAPI): void {
 				: new CustomEditor(tui, theme, keybindings)) as unknown as AutocompleteEditor;
 
 			// InteractiveMode copies its configured value into custom editors after
-			// this factory returns. Keep this experiment's shared pane at seven rows.
+			// this factory returns. Keep this experiment's collapsed shared pane at seven rows.
 			const setAutocompleteMaxVisible = editor.setAutocompleteMaxVisible?.bind(editor);
 			if (setAutocompleteMaxVisible) {
 				editor.setAutocompleteMaxVisible = () => setAutocompleteMaxVisible(AUTOCOMPLETE_MAX_VISIBLE);
@@ -361,6 +410,7 @@ export default function (pi: ExtensionAPI): void {
 				() => latestMcpStatus,
 				() => mcpServerNamesFromTools(pi.getAllTools()),
 				() => footerLinks,
+				(statuses) => extensionNamesFromRuntime(pi.getAllTools(), pi.getActiveTools(), pi.getCommands(), statuses),
 			);
 		});
 	});

@@ -36,11 +36,9 @@ Shapes transcript panels without changing their terminal-cell layout:
 
 The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.
 
-## `native-cursor.ts`
+## Native cursor (built into Pi 1.2)
 
-Removes Pi's reverse-video software cursor while preserving the cursor marker used to position the terminal's native cursor. The extension does not choose the native cursor's shape; that remains a terminal setting.
-
-This extension requires Pi's hardware cursor to be enabled. Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json` or launch Pi with `PI_HARDWARE_CURSOR=1`. Otherwise the extension removes Pi's software cursor while Pi keeps the terminal cursor hidden, leaving no visible cursor.
+Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes its software cursor itself; the terminal controls the native cursor shape. The former `native-cursor.ts` extension is retired. Remove its installed symlink and any explicit settings entry when upgrading.
 
 ## `recessed-tools.ts`
 
@@ -54,7 +52,7 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 
 ## `session-rename.ts`
 
-Automatically names a session from the conversation after the first user-agent turn, then refreshes the generated name every five turns. Generated names contain only a concise topic so they remain easy to scan in the footer and session picker. When the initial request links to a GitHub pull request, Linear ticket, or similar work item, the name uses its human-readable title when the conversation or retrieved tool context provides it instead of relying on the item ID alone. Manual names are never overwritten.
+Automatically names a session from the conversation after the first user-agent turn, then refreshes the generated name every five turns. Generated names contain only a concise topic so they remain easy to scan in the footer and session picker. When the initial request links to a GitHub pull request, Linear ticket, or similar work item, the name uses its human-readable title when the conversation or retrieved tool context provides it instead of relying on the item ID alone. Each generated refresh receives the previous title as a continuity anchor: preserve its core topic, keep it unchanged when still accurate, and broaden it only when the session's goal warrants it rather than chasing the latest subtask. Manual names are never overwritten.
 
 Commands:
 
@@ -74,15 +72,21 @@ pi remove npm:@moguw/pi-session-rename
 
 ## `stable-input-layout.ts`
 
-Keeps a seven-row pane below the editor so the input and transcript remain anchored:
+Keeps a seven-row collapsed pane below the editor so the input and transcript remain anchored:
 
 - while idle, the pane shows project, usage, context, model, task links, MCP servers, and active visual extensions;
 - the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for resources such as Linear tickets, local mock or Storybook pages, and pull requests;
 - task links are branch-local session state, survive resume and reload, and can be cleared by setting an empty list;
-- links occupy the left side of the MCP row while MCP and EXT status remain right-aligned;
+- location (`F:`, `B:`, `WT:`), usage (`U:`), context (`C:`), and model (`M:`) stay left; queue guidance stays right in an equal-width column;
+- unprefixed links are right-aligned and bottom-anchored on the model row, one line above the final summary/relay row; they wrap upward across up to three existing rows alongside usage, context, and model; overflow ends in an ellipsis rather than increasing footer height;
+- the final left-aligned row combines inventory counts: `E: 2x MCP servers, 5x extensions (alt+i to expand)`; this row can use the full width;
+- `Alt+I` (or `/inventory`) toggles the full inline list below the summary, labeled MCP or EXT, with reported MCP status when available; expanded entries wrap across the available width rather than truncating the list;
+- expansion intentionally grows the dock; collapse restores seven rows, and reload starts collapsed; autocomplete temporarily hides the inventory;
 - the MCP status names servers with registered, non-hidden tools, including native codemode and deferred tools; names are deduplicated, and legacy `pi-mcp-adapter` snapshots remain supported (this is not a connection-health indicator);
-- visual extensions announce themselves through scoped footer statuses, so only customizations loaded in the current session appear;
-- the first row right-aligns live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
-- while autocomplete is open, up to six choices plus its scroll indicator replace the session information in the same space;
+- EXT automatically groups available non-built-in tools and extension commands by their source package or extension filename, alongside UI customizations that publish scoped footer statuses; web access, the journal, and future tool/command packages do not need custom footer integration;
+- inactive direct tools and hidden tools are excluded; codemode/deferred tools remain available and count, while MCP tools stay in the MCP list; built-ins, skills, prompt templates, and external CLIs are not extension inventory entries;
+- hook-only extensions without tools, commands, or a scoped status cannot be discovered through these public APIs; counts describe discoverable providers, not a complete installed-extension inventory or connection-health check; the list refreshes from runtime metadata on each render;
+- the top three right-side rows wrap live run/queue state plus a compact reminder: `↵` steers the next turn, `⌥↵` queues work after the task, and `⌥↑` returns the queue to the editor for revision;
+- while autocomplete is open, up to six choices plus its scroll indicator replace the collapsed session information in the same space;
 - short autocomplete lists are padded to the same height, so filtering does not move the input;
-- the terminal's native cursor customization continues to compose with the custom editor.
+- the custom editor preserves the cursor marker for Pi's built-in native cursor handling.
