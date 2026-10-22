@@ -77,6 +77,8 @@ Keeps a seven-row collapsed pane below the editor so the input and transcript re
 - while idle, the pane shows project, usage, context, model, task links, MCP servers, and active visual extensions;
 - the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for resources such as Linear tickets, local mock or Storybook pages, and pull requests;
 - task links are branch-local session state, survive resume and reload, and can be cleared by setting an empty list;
+- `set_task_workspace({ path: "/absolute/task/directory" })` updates `F`, `B`, and `WT` together when the agent claims or switches worktrees; it uses Git metadata, not worktree naming conventions. This is display-only: tool cwd, relative path resolution, and the title banner's session directory are unchanged;
+- the workspace selection survives resume/reload on the active session branch. Git metadata refreshes after each agent run; detached HEAD displays `B: -`. Pass `path: null` to restore the session directory. Missing saved directories fall back to the session directory. Shell `cd` and incidental reads do not implicitly select a workspace;
 - location (`F:`, `B:`, `WT:`), usage (`U:`), context (`C:`), and model (`M:`) stay left; queue guidance stays right in an equal-width column;
 - unprefixed links are right-aligned and bottom-anchored on the model row, one line above the final summary/relay row; they wrap upward across up to three existing rows alongside usage, context, and model; overflow ends in an ellipsis rather than increasing footer height;
 - the final left-aligned row combines inventory counts: `E: 2x MCP servers, 5x extensions (alt+i to expand)`; this row can use the full width;

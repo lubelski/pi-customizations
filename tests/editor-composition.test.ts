@@ -34,7 +34,7 @@ for (const extensions of [[stableInput]]) {
 		const pi = {
 			on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
 			events: { on() {} },
-			registerTool(tool) { footerLinksTool = tool; },
+			registerTool(tool) { if (tool.name === "set_footer_links") footerLinksTool = tool; },
 			registerShortcut(key, options) { assert.equal(key, "alt+i"); inventoryShortcut = options; },
 			registerCommand(name, options) { assert.equal(name, "inventory"); inventoryCommand = options; },
 			appendEntry(customType, data) { branchEntries.push({ type: "custom", customType, data }); },
