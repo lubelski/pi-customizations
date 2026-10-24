@@ -25,7 +25,9 @@ export default function (pi: ExtensionAPI): void {
 		if (closing < 1 || stripTerminalSequences(lines[closing]) !== "```" ||
 			!stripTerminalSequences(lines[0]).startsWith("```")) return lines;
 		const label = stripTerminalSequences(token.lang ?? "").replace(/[\x00-\x1f\x7f-\x9f]/g, " ").trim();
-		const top = truncateToWidth(label ? `┌${label}─` : "┌", width);
+		const top = truncateToWidth(label || "┌──", width);
+		// Keep the previous lower arm's span (language width plus two cells).
+		const bottomWidth = Math.min(width, label ? visibleWidth(label) + 2 : 3);
 		const border = (text: string) => this.theme.codeBlockBorder(text);
 		const result = [border(top)];
 		const indent = this.theme.codeBlockIndent ?? "  ";
@@ -36,7 +38,7 @@ export default function (pi: ExtensionAPI): void {
 				result.push(border(prefix) + wrapped);
 			}
 		}
-		result.push(border(`└${"─".repeat(Math.max(0, visibleWidth(top) - 1))}`));
+		result.push(border(`└${"─".repeat(Math.max(0, bottomWidth - 1))}`));
 		if (trailingSpace) result.push("");
 		return result;
 	};

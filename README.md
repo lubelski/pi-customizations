@@ -5,7 +5,7 @@ Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 ## Included extensions
 
 - [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose a shaped neutral-gray panel
-- [`code-brackets.ts`](extensions/code-brackets.ts) — replaces code fences with muted Unicode brackets and matching language-label arms
+- [`code-brackets.ts`](extensions/code-brackets.ts) — replaces code fences with plain language labels and muted Unicode bracket rules
 - [`half-bleed.ts`](extensions/half-bleed.ts) — reshapes message panels and reduces tools to a thin left rule
 - [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
 - [`session-rename.ts`](extensions/session-rename.ts) — automatically names sessions with concise, scannable topics

@@ -27,13 +27,13 @@ Pi does not expose a public renderer for built-in assistant messages. This exper
 Replaces Markdown's visible code fences with a muted, open-left bracket while preserving native syntax highlighting:
 
 ````text
-┌typescript─
+typescript
 │ const answer = 42;
 │ console.log(answer);
 └───────────
 ````
 
-The lower arm matches the displayed upper arm's width, not the code width. Unlabeled blocks use bare `┌` / `└` corners. Long code lines wrap with a continuing left rule; labels shorten on narrow terminals. Inline code and indented (unfenced) code retain native rendering. This applies to fenced blocks rendered through Pi's Markdown component, including nested lists/quotes; source messages and model context are unchanged.
+Language labels sit flush left without a top elbow or trailing rule. The lower arm keeps its original span (language width plus two cells), not the code width. Unlabeled blocks use `┌──` / `└──` arms. Long code lines wrap with a continuing left rule; labels shorten on narrow terminals. Inline code and indented (unfenced) code retain native rendering. This applies to fenced blocks rendered through Pi's Markdown component, including nested lists/quotes; source messages and model context are unchanged.
 
 Pi has no public fence-layout setting, so this uses a guarded, reload-safe token-renderer patch. Unsupported token layouts fall back to Pi's rendering.
 
