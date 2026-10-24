@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Markdown, stripTerminalSequences, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Markdown, stripTerminalSequences, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 const ORIGINAL = Symbol.for("will.pi.code-brackets.original-token");
 const WRAPPED = Symbol.for("will.pi.code-brackets.wrapped-token");
@@ -26,8 +26,7 @@ export default function (pi: ExtensionAPI): void {
 			!stripTerminalSequences(lines[0]).startsWith("```")) return lines;
 		const label = stripTerminalSequences(token.lang ?? "").replace(/[\x00-\x1f\x7f-\x9f]/g, " ").trim();
 		const top = truncateToWidth(label || "┌──", width);
-		// Keep the previous lower arm's span (language width plus two cells).
-		const bottomWidth = Math.min(width, label ? visibleWidth(label) + 2 : 3);
+		const bottomWidth = Math.min(width, 3);
 		const border = (text: string) => this.theme.codeBlockBorder(text);
 		const result = [border(top)];
 		const indent = this.theme.codeBlockIndent ?? "  ";

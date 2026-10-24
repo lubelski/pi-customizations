@@ -17,7 +17,7 @@ test("fenced code uses plain language labels, lower arms, and native syntax colo
 			const lines = render(source);
 			const plain = lines.map(line => stripTerminalSequences(line).trimEnd());
 			assert.ok(plain.includes("typescript"));
-			assert.ok(plain.includes("└───────────"));
+			assert.ok(plain.includes("└──"));
 			assert.ok(plain.includes("│ const answer = 42;"));
 			assert.ok(plain.includes("Before inline."));
 			assert.ok(plain.includes("After."));
@@ -35,11 +35,11 @@ test("fenced code uses plain language labels, lower arms, and native syntax colo
 				const narrow = render("```typescript\nlong_identifier_" + "x".repeat(100) + "\n```", width);
 				assert.ok(narrow.every(line => visibleWidth(line) <= width), `width ${width}`);
 				const p = narrow.map(line => stripTerminalSequences(line).trimEnd());
-				assert.equal(visibleWidth(p.at(-1)), Math.min(width, 12));
+				assert.equal(visibleWidth(p.at(-1)), Math.min(width, 3));
 				if (width >= 3) assert.ok(p.slice(1, -1).every(line => line.startsWith("│ ")));
 			}
 			const wideLabel = render("```日本語\nx\n\n y\n```").map(line => stripTerminalSequences(line).trimEnd());
-			assert.equal(visibleWidth(wideLabel[0]) + 2, visibleWidth(wideLabel.at(-1)));
+			assert.equal(visibleWidth(wideLabel.at(-1)), 3);
 			assert.ok(wideLabel.includes("│"), "blank code rows retain their rule");
 			assert.ok(!render("    indented code").map(stripTerminalSequences).join("\n").includes("┌"));
 			for (const nested of ["> ```js\n> let x = 1;\n> ```", "- item\n\n  ```js\n  let x = 1;\n  ```"]) {

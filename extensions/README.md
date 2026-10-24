@@ -30,10 +30,10 @@ Replaces Markdown's visible code fences with a muted, open-left bracket while pr
 typescript
 │ const answer = 42;
 │ console.log(answer);
-└───────────
+└──
 ````
 
-Language labels sit flush left without a top elbow or trailing rule. The lower arm keeps its original span (language width plus two cells), not the code width. Unlabeled blocks use `┌──` / `└──` arms. Long code lines wrap with a continuing left rule; labels shorten on narrow terminals. Inline code and indented (unfenced) code retain native rendering. This applies to fenced blocks rendered through Pi's Markdown component, including nested lists/quotes; source messages and model context are unchanged.
+Language labels sit flush left without a top elbow or trailing rule. The lower arm is always `└──`, independent of the language or code width. Unlabeled blocks use `┌──` / `└──` arms. Long code lines wrap with a continuing left rule; labels shorten on narrow terminals. Inline code and indented (unfenced) code retain native rendering. This applies to fenced blocks rendered through Pi's Markdown component, including nested lists/quotes; source messages and model context are unchanged.
 
 Pi has no public fence-layout setting, so this uses a guarded, reload-safe token-renderer patch. Unsupported token layouts fall back to Pi's rendering.
 
