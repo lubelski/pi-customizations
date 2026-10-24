@@ -45,13 +45,17 @@ Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
 - completed, collapsed tools occupy one muted row: tool name plus a path, command, query, or URL when available; scripts and payloads stay hidden;
-- clicking that row or using Pi's native expand shortcut reveals the complete component, including image results;
+- clicking that row or using Pi's native expand shortcut opens a ten-row text preview, plus the summary and control rows;
+- click `+10 more` to grow the preview incrementally, or `show all` to restore native full output (including images);
+- click the summary again to collapse; reopening starts at ten rows, and preview-body clicks do not unexpectedly change its size;
+- `/tool-detail more|all|collapse` controls the last opened/clicked tool; Ctrl+O followed by this command provides a keyboard path (when opening several tools, it targets the last one);
+- image output stays hidden until `show all`, so image escape sequences are never clipped;
 - running tools retain their native previews;
 - tool titles and output use the theme's dim text color;
 - failed tools use an error-colored row with a failure marker;
 - saved results and model context are unchanged.
 
-This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Compact rows own their click coordinates; expanded/running tools delegate to Pi. Reloading does not stack the wrappers.
+This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Completed tools own their header/control hit areas; previews use native text components without images, and full disclosure uses native rendering. Running tools retain native input. Reloading does not stack the wrappers.
 
 ## `session-rename.ts`
 

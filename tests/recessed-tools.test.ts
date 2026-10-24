@@ -9,7 +9,8 @@ test("completed tools are one row, with native details and accurate mouse expans
 	const { stripTerminalSequences, visibleWidth, Text } = tuiModule;
 	themeModule.initTheme("dark");
 	const handlers = new Map();
-	const pi = { on: (name, handler) => handlers.set(name, handler) };
+	const commands = new Map();
+	const pi = { on: (name, handler) => handlers.set(name, handler), registerCommand: (name, command) => commands.set(name, command) };
 	let renders = 0;
 	const ui = { requestRender() { renders++; } };
 	const ctx = { mode: "tui", ui: { get theme() { return themeModule.theme; }, setStatus() {} } };
@@ -46,6 +47,35 @@ test("completed tools are one row, with native details and accurate mouse expans
 		}
 	}
 	assert.equal(renders, 6);
+	const long = new ToolExecutionComponent("bash", "long", { command: "test" }, {}, undefined, ui);
+	long.updateResult({ content: [{ type: "text", text: Array.from({ length: 100 }, (_, i) => `output ${i}`).join("\n") }] }, false);
+	long.setExpanded(true); // Native Ctrl+O path is bounded too.
+	let lines = long.render(80);
+	assert.equal(lines.length, 12);
+	assert.match(stripTerminalSequences(lines.at(-1)), /10 more.*show all/);
+	assert.equal(long.handleMouse({ type: "click", button: "left", x: 0, y: 3 }), undefined);
+	long.handleMouse({ type: "click", button: "left", x: 0, y: 11 });
+	lines = long.render(80);
+	assert.equal(lines.length, 22);
+	await commands.get("tool-detail").handler("more", ctx);
+	assert.equal(long.render(80).length, 32);
+	long.handleMouse({ type: "click", button: "left", x: 40, y: 31 });
+	assert.ok(long.render(80).length > 100);
+	assert.match(long.render(80).map(stripTerminalSequences).join("\n"), /output 99/);
+	long.handleMouse({ type: "click", button: "left", x: 0, y: 0 });
+	assert.equal(long.render(80).length, 1);
+	long.setExpanded(true);
+	assert.equal(long.render(80).length, 12, "reopening resets the preview budget");
+	for (const width of [1, 4, 20]) {
+		assert.equal(long.render(width).length, 12);
+		assert.ok(long.render(width).every(line => visibleWidth(line) <= width));
+	}
+	await commands.get("tool-detail").handler("collapse", ctx);
+	assert.equal(long.render(80).length, 1);
+	// Preview never executes image renderers, even after native expansion.
+	long.imageComponents = [{ render() { assert.fail("image rendered in preview"); } }];
+	long.setExpanded(true);
+	assert.equal(long.render(80).length, 12);
 	assert.equal(toolSummary("codemode", { code: "secret script" }, false), "› codemode");
 	assert.equal(toolSummary("bash", { command: "echo\n\u001b[31mhello\tworld" }, false), "› bash · echo hello world");
 	assert.equal(toolSummary("mcp__server__tool", {}, false), "› mcp__server__tool");
