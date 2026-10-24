@@ -4,9 +4,19 @@ import {
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 
-const COLLAPSED_MAX_LINES = 7;
-const COLLAPSED_HEAD_LINES = 3;
-const COLLAPSED_TAIL_LINES = COLLAPSED_MAX_LINES - COLLAPSED_HEAD_LINES;
+import { stripTerminalSequences, truncateToWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+
+let currentTheme: (() => Theme) | undefined;
+const ORIGINAL_MOUSE = Symbol.for("will.pi.recessed-tools.original-mouse");
+const WRAPPED_MOUSE = Symbol.for("will.pi.recessed-tools.wrapped-mouse");
+
+/** Deliberately omit payloads/scripts: the transcript should foreground prose. */
+export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean): string {
+	const target = [args.path, args.file_path, args.command, args.query, args.url]
+		.find((value): value is string => typeof value === "string" && value.length > 0);
+	const clean = (value: string) => stripTerminalSequences(value).replace(/[\x00-\x1f\x7f-\x9f]/g, " ").replace(/\s+/g, " ").trim();
+	return `${failed ? "✗" : "›"} ${clean(name)}${target ? ` · ${clean(target)}` : ""}${failed ? " · failed" : ""}`;
+}
 
 const ORIGINAL_RENDER = Symbol.for("will.pi.recessed-tools.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.recessed-tools.wrapped-render");
@@ -18,7 +28,13 @@ const WRAPPED_FG = Symbol.for("will.pi.recessed-tools.wrapped-fg");
 type ToolComponent = {
 	render(width: number): string[];
 	expanded?: boolean;
-	imageComponents?: unknown[];
+	toolName?: string;
+	args?: Record<string, unknown>;
+	isPartial?: boolean;
+	result?: { isError?: boolean };
+	setExpanded(expanded: boolean): void;
+	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined;
+	ui?: { requestRender(): void };
 };
 
 type PatchTarget<T> = T & Record<PropertyKey, unknown>;
@@ -49,21 +65,29 @@ function patchToolHeight(): void {
 	const target = ToolExecutionComponent.prototype as unknown as PatchTarget<ToolComponent>;
 	const original = currentBase(target, target.render, ORIGINAL_RENDER, WRAPPED_RENDER);
 
+	const summarized = (component: ToolComponent) => currentTheme && !component.expanded &&
+		component.isPartial === false && component.result && typeof component.toolName === "string";
 	const wrapper = function (this: ToolComponent, width: number): string[] {
-		const lines = original.call(this, width);
-		if (this.expanded || (this.imageComponents?.length ?? 0) > 0 || lines.length <= COLLAPSED_MAX_LINES) {
-			return lines;
-		}
-
-		// Keep both the tool's identity at the top and its summary, duration, or
-		// expansion hint at the bottom. The ordinary expand action still reveals
-		// the complete component.
-		return [
-			...lines.slice(0, COLLAPSED_HEAD_LINES),
-			...lines.slice(-COLLAPSED_TAIL_LINES),
-		];
+		if (!summarized(this)) return original.call(this, width);
+		if (width <= 0) return [];
+		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError);
+		return [currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width))];
 	};
 
+	// The compact row owns its hit area; never send its coordinates into the
+	// hidden native component tree. Expanded/running tools retain native input.
+	const originalMouse = currentBase(target, target.handleMouse, ORIGINAL_MOUSE, WRAPPED_MOUSE);
+	const mouse = function (this: ToolComponent, event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		if (!summarized(this)) return originalMouse.call(this, event);
+		if (event.y === 0 && event.type === "click" && event.button === "left") {
+			this.setExpanded(true);
+			this.ui?.requestRender();
+			return { handled: true };
+		}
+		return undefined;
+	};
+	setPatch(target, ORIGINAL_MOUSE, WRAPPED_MOUSE, originalMouse, mouse);
+	target.handleMouse = mouse;
 	setPatch(target, ORIGINAL_RENDER, WRAPPED_RENDER, original, wrapper);
 	target.render = wrapper;
 }
@@ -107,6 +131,9 @@ export default function (pi: ExtensionAPI): void {
 	patchToolColors();
 
 	pi.on("session_start", (_event, ctx) => {
-		if (ctx.mode === "tui") ctx.ui.setStatus("pi-customization:recessed-tools", "recessed-tools");
+		if (ctx.mode === "tui") {
+			currentTheme = () => ctx.ui.theme;
+			ctx.ui.setStatus("pi-customization:recessed-tools", "recessed-tools");
+		}
 	});
 }

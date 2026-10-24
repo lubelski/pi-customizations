@@ -44,11 +44,14 @@ Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes 
 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
-- collapsed tool panels show at most seven lines, retaining both their beginning and end;
-- expanding a tool still reveals the complete component;
+- completed, collapsed tools occupy one muted row: tool name plus a path, command, query, or URL when available; scripts and payloads stay hidden;
+- clicking that row or using Pi's native expand shortcut reveals the complete component, including image results;
+- running tools retain their native previews;
 - tool titles and output use the theme's dim text color;
-- errors remain visually distinct;
-- image results are not truncated.
+- failed tools use an error-colored row with a failure marker;
+- saved results and model context are unchanged.
+
+This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Compact rows own their click coordinates; expanded/running tools delegate to Pi. Reloading does not stack the wrappers.
 
 ## `session-rename.ts`
 
