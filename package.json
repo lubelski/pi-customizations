@@ -15,5 +15,9 @@
     "@types/node": "26.6.4",
     "jiti": "2.7.0",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "acorn": "8.19.0",
+    "acorn-walk": "8.3.5"
   }
 }

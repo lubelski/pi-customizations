@@ -2,7 +2,7 @@
 
 ## Installation
 
-Link each extension into Pi's user extension directory:
+Run `npm ci --ignore-scripts` in this checkout first (the codemode summary uses the pinned Acorn parser dependencies). Keep the checkout and its dependencies available, then link each extension into Pi's user extension directory:
 
 ```sh
 mkdir -p "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib"
@@ -45,6 +45,7 @@ Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
 - completed, collapsed tools occupy one muted row: tool name plus a path, command, query, or URL when available; scripts and payloads stay hidden;
+- codemode rows list up to three distinct static tool/discovery call names in source order, with repeat counts and `+N more`; narrow widths show fewer names. These are source call sites, not execution counts—loops and branches are not evaluated. Comments/string examples are ignored; dynamic calls and unparseable/oversized scripts fall back gracefully;
 - clicking that row or using Pi's native expand shortcut opens a ten-row text preview, plus the summary and control rows;
 - click `+10 more` to grow the preview incrementally, or `show all` to restore native full output (including images);
 - click the summary again to collapse; reopening starts at ten rows, and preview-body clicks do not unexpectedly change its size;

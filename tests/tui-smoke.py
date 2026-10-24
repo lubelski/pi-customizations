@@ -34,7 +34,9 @@ def smoke(mode, theme):
         agent.mkdir()
         # Match the documented installed layout, without reading the user's config.
         for directory in ("extensions", "lib", "themes"):
-            shutil.copytree(REPO / directory, agent / directory)
+            (agent / directory).mkdir()
+            for source in (REPO / directory).iterdir():
+                (agent / directory / source.name).symlink_to(source)
         (agent / "settings.json").write_text(json.dumps({
             "theme": theme, "tuiMode": mode, "quietStartup": True,
             "showHardwareCursor": True, "lastChangelogVersion": json.loads((PI / "package.json").read_text())["version"],

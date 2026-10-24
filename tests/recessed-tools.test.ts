@@ -3,7 +3,7 @@ import test from "node:test";
 import { jiti, themeModule, tuiModule } from "./pi-runtime.ts";
 
 test("completed tools are one row, with native details and accurate mouse expansion", async () => {
-	const { default: extension, toolSummary } = await jiti.import("../extensions/recessed-tools.ts");
+	const { default: extension, toolSummary, codemodeCalls } = await jiti.import("../extensions/recessed-tools.ts");
 	const { default: halfBleed } = await jiti.import("../extensions/half-bleed.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 	const { stripTerminalSequences, visibleWidth, Text } = tuiModule;
@@ -77,6 +77,30 @@ test("completed tools are one row, with native details and accurate mouse expans
 	long.setExpanded(true);
 	assert.equal(long.render(80).length, 12);
 	assert.equal(toolSummary("codemode", { code: "secret script" }, false), "› codemode");
+	assert.deepEqual(codemodeCalls(`// tools.fake()
+		const example = 'tools.fake()'; const regex = /tools.fake()/;
+		await tools.read({}); await tools["read"]({});
+		await Promise.all([tools.bash({}), tools.edit({}), tools.write({})]);
+		await searchTools("x"); await describeTool("read"); await describeNamespace("ns");
+		return tools[name]({});`), ["read ×2", "bash", "edit", "write", "searchTools", "describeTool", "describeNamespace"]);
+	assert.deepEqual(codemodeCalls('return `tools.fake() ${await tools.read({})}`'), ["read"]);
+	assert.deepEqual(codemodeCalls('tools[name]({}); const r = tools.read; other.tools.fake();'), []);
+	assert.deepEqual(codemodeCalls('tools.read('), []);
+	assert.deepEqual(codemodeCalls(undefined), []);
+	assert.deepEqual(codemodeCalls(' '.repeat(100_001)), []);
+	const scriptArgs = { code: 'tools.read({}); tools.read({}); tools.bash({}); tools.edit({}); tools.write({})' };
+	assert.equal(toolSummary("codemode", scriptArgs, false), "› codemode · read ×2, bash, edit · +1 more");
+	assert.equal(toolSummary("codemode", scriptArgs, false, 34), "› codemode · read ×2 · +3 more");
+	scriptArgs.code = 'await describeTool("read")';
+	assert.equal(toolSummary("codemode", scriptArgs, true), "✗ codemode · describeTool · failed");
+	const codeTool = new ToolExecutionComponent("codemode", "code", scriptArgs, {}, undefined, ui);
+	codeTool.updateResult({ content: [{ type: "text", text: "done" }] }, false);
+	for (const width of [1, 12, 30, 80]) {
+		const rendered = codeTool.render(width);
+		assert.equal(rendered.length, 1);
+		assert.ok(visibleWidth(rendered[0]) <= width);
+	}
+	assert.match(stripTerminalSequences(codeTool.render(80)[0]), /codemode · describeTool/);
 	assert.equal(toolSummary("bash", { command: "echo\n\u001b[31mhello\tworld" }, false), "› bash · echo hello world");
 	assert.equal(toolSummary("mcp__server__tool", {}, false), "› mcp__server__tool");
 });

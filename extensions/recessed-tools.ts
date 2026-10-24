@@ -4,7 +4,45 @@ import {
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 
-import { stripTerminalSequences, truncateToWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, truncateToWidth, visibleWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { createRequire } from "node:module";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+// Pi loads personal extensions through symlinks. Resolve parser dependencies
+// from this checkout, not from the user's ~/.pi/agent directory.
+const requireDependency = createRequire(realpathSync(fileURLToPath(import.meta.url)));
+const { parse } = requireDependency("acorn") as typeof import("acorn");
+const { simple } = requireDependency("acorn-walk") as typeof import("acorn-walk");
+
+const discoveryCalls = new Set(["searchTools", "describeTool", "describeNamespace"]);
+const scriptCache = new WeakMap<object, { code: unknown; labels: string[] }>();
+
+/** Static call sites, not execution counts (loops/branches are not evaluated). */
+export function codemodeCalls(code: unknown): string[] {
+	if (typeof code !== "string" || code.length > 100_000) return [];
+	try {
+		const ast = parse(code, { ecmaVersion: "latest", allowAwaitOutsideFunction: true, allowReturnOutsideFunction: true });
+		const calls: { name: string; start: number }[] = [];
+		simple(ast, {
+			CallExpression(node) {
+				const callee = node.callee;
+				let name: string | undefined;
+				if (callee.type === "Identifier" && discoveryCalls.has(callee.name)) name = callee.name;
+				if (callee.type === "MemberExpression" && callee.object.type === "Identifier" && callee.object.name === "tools") {
+					if (!callee.computed && callee.property.type === "Identifier") name = callee.property.name;
+					else if (callee.computed && callee.property.type === "Literal" && typeof callee.property.value === "string") name = callee.property.value;
+				}
+				if (name && /^[\w$]+$/.test(name)) calls.push({ name, start: node.start });
+			},
+		});
+		const counts = new Map<string, number>();
+		for (const { name } of calls.sort((a, b) => a.start - b.start)) counts.set(name, (counts.get(name) ?? 0) + 1);
+		return [...counts].map(([name, count]) => count > 1 ? `${name} ×${count}` : name);
+	} catch {
+		return []; // Invalid/unsupported scripts must never break transcript rendering.
+	}
+}
 
 let currentTheme: (() => Theme) | undefined;
 const PAGE_SIZE = 10;
@@ -31,7 +69,19 @@ const ORIGINAL_MOUSE = Symbol.for("will.pi.recessed-tools.original-mouse");
 const WRAPPED_MOUSE = Symbol.for("will.pi.recessed-tools.wrapped-mouse");
 
 /** Deliberately omit payloads/scripts: the transcript should foreground prose. */
-export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean): string {
+export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity): string {
+	if (name === "codemode") {
+		let cached = scriptCache.get(args);
+		if (!cached || cached.code !== args.code) {
+			cached = { code: args.code, labels: codemodeCalls(args.code) };
+			scriptCache.set(args, cached);
+		}
+		const { labels } = cached;
+		const format = (count: number) => `${failed ? "✗" : "›"} codemode${count ? ` · ${labels.slice(0, count).join(", ")}` : ""}${labels.length > count ? ` · +${labels.length - count} more` : ""}${failed ? " · failed" : ""}`;
+		let count = Math.min(3, labels.length);
+		while (count > 1 && visibleWidth(format(count)) > width) count--;
+		return format(count);
+	}
 	const target = [args.path, args.file_path, args.command, args.query, args.url]
 		.find((value): value is string => typeof value === "string" && value.length > 0);
 	const clean = (value: string) => stripTerminalSequences(value).replace(/[\x00-\x1f\x7f-\x9f]/g, " ").replace(/\s+/g, " ").trim();
@@ -104,7 +154,7 @@ function patchToolHeight(): void {
 	const wrapper = function (this: ToolComponent, width: number): string[] {
 		if (!completed(this)) return original.call(this, width);
 		if (width <= 0) return [];
-		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError);
+		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
 		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
 		if (!this.expanded) return [header];
 		const state = disclosure(this);
