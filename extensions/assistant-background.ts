@@ -9,13 +9,10 @@ import {
 	foregroundAnsi,
 	Markdown,
 	rgbColor,
-	stripTerminalSequences,
-	visibleWidth,
 } from "@earendil-works/pi-tui";
 import {
 	LEFT_PANEL_EDGE,
 	RIGHT_PANEL_EDGE,
-	shapePanelCaps,
 	stabilizeThinkingToolSpacing,
 	type ThinkingLayout,
 } from "../lib/transcript-layout.ts";
@@ -55,7 +52,7 @@ type AssistantInternals = {
 	render(width: number): string[];
 };
 
-function assistantBackground(text: string): string {
+function assistantBackground(text: string, panelEdges = true): string {
 	if (!activeTheme) return text;
 
 	// Neutral grays chosen to sit clearly above the terminal background while
@@ -66,7 +63,7 @@ function assistantBackground(text: string): string {
 	const mode = activeTheme.getColorMode();
 	const background = backgroundAnsi(color, mode);
 
-	if (text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
+	if (!panelEdges || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
 		return `${background}${text}\x1b[49m`;
 	}
 
@@ -90,12 +87,15 @@ function styleTextBlocks(component: AssistantInternals): void {
 		// does not expose a public assistant-message renderer API.
 		if (!(child instanceof Markdown)) continue;
 
+		let state = states.get(component);
+		if (!state) states.set(component, state = { plain: false });
+		latestState = state;
+		latestSource = (child as unknown as { text: string }).text;
 		if (!controls.has(child)) {
-			let state = states.get(component);
-			if (!state) states.set(component, state = { plain: false });
-			latestState = state;
-			latestSource = (child as unknown as { text: string }).text;
-			attachMessageControls(child as unknown as Parameters<typeof attachMessageControls>[0], state, (message, error) => notify(message, error));
+			attachMessageControls(child as unknown as Parameters<typeof attachMessageControls>[0], state, (message, error) => notify(message, error), (text, plain) => {
+				const label = activeTheme ? activeTheme.fg("mdCodeBlockBorder", text) : text;
+				return plain ? label : assistantBackground(label, false);
+			});
 			controls.add(child);
 		}
 		const markdown = child as unknown as MarkdownInternals;
@@ -120,8 +120,7 @@ function patchAssistantRendering(): void {
 
 	const wrapper = function (this: AssistantInternals, width: number): string[] {
 		styleTextBlocks(this);
-		const shaped = shapePanelCaps(original.call(this, width), stripTerminalSequences, visibleWidth);
-		return stabilizeThinkingToolSpacing(shaped, messageLayout(this));
+		return stabilizeThinkingToolSpacing(original.call(this, width), messageLayout(this));
 	};
 
 	Object.defineProperty(target, ORIGINAL_RENDER, { value: original, configurable: true, writable: true });

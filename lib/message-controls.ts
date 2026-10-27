@@ -1,8 +1,9 @@
 import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import { Text, sliceByColumn, stripTerminalSequences, visibleWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { marked } from "marked";
+import { shapePanelCaps } from "./transcript-layout.ts";
 
-export type MessageControlState = { plain: boolean };
+export type MessageControlState = { plain: boolean; expanded?: boolean };
 type MarkdownBlock = {
 	text: string;
 	render(width: number): string[];
@@ -19,7 +20,9 @@ export function codeBlocks(source: string): string[] {
 
 /** Hit areas cover labels only, leaving the body available for selection. */
 export function attachMessageControls(block: MarkdownBlock, state: MessageControlState,
-	notify: (message: string, error?: boolean) => void): void {
+	notify: (message: string, error?: boolean) => void,
+	buttonStyle: (text: string, plain: boolean) => string = text => text,
+	copy: (text: string) => Promise<void> = copyToClipboard): void {
 	const render = block.render.bind(block);
 	let areas: { start: number; end: number; action: () => void }[] = [];
 	block.render = width => {
@@ -27,23 +30,43 @@ export function attachMessageControls(block: MarkdownBlock, state: MessageContro
 		if (width < 1) return [];
 		const lines = state.plain
 			? ["", ...new Text(stripTerminalSequences(block.text), 0, 0).render(width)]
-			: render(width).slice();
-		const codes = codeBlocks(block.text);
-		const controls = [{ label: state.plain ? "[formatted]" : "[plain text]", action: () => { state.plain = !state.plain; } }];
-		if (codes.length) controls.push({ label: codes.length === 1 ? "[copy code]" : "[copy all code]", action: () => {
-			void copyToClipboard(codes.join("\n\n")).then(() => notify("Code copied"), () => notify("Could not copy code", true));
-		} });
-		const labels = controls.map(c => c.label).join(" ");
-		// Hide controls rather than create clipped, misleading hit targets.
-		if (labels.length + 2 > width) return lines;
-		const start = width - labels.length - 1;
-		let x = start;
-		for (const control of controls) {
-			areas.push({ start: x, end: x + control.label.length, action: control.action });
-			x += control.label.length + 1;
-		}
+			: shapePanelCaps(render(width).slice(), stripTerminalSequences, visibleWidth);
+		const trigger = { label: state.expanded ? "›" : "‹", action: () => { state.expanded = !state.expanded; } };
+		const controls = state.expanded ? [
+			{ label: "fmt", action: () => { state.plain = !state.plain; } },
+			{ label: "copy", action: () => {
+				void copy(block.text).then(() => notify("Text copied"), () => notify("Could not copy text", true));
+			} },
+			trigger,
+		] : [trigger];
+		const padding = state.plain ? "" : " ";
+		const gap = 2;
+		const rightMargin = 2;
+		const measureControls = () => controls.reduce((sum, control) => sum + control.label.length + padding.length * 2, 0) + gap * (controls.length - 1);
+		if (measureControls() + rightMargin + 1 > width) controls.splice(0, controls.length, trigger);
+		const controlsWidth = measureControls();
+		// Leave the left corner intact and hide controls rather than clip hit targets.
+		if (controlsWidth + rightMargin + 1 > width) return lines;
+		const start = width - controlsWidth - rightMargin;
 		const first = lines[0] ?? "";
-		lines[0] = sliceByColumn(first, 0, start) + "\x1b[0m" + " ".repeat(Math.max(0, start - Math.min(start, visibleWidth(first)))) + labels + " ";
+		const capSlice = (from: number, length: number) => {
+			const slice = sliceByColumn(first, from, length);
+			return slice + " ".repeat(Math.max(0, length - visibleWidth(slice)));
+		};
+		let row = capSlice(0, start);
+		let x = start;
+		for (let index = 0; index < controls.length; index++) {
+			const control = controls[index];
+			const label = padding + control.label + padding;
+			areas.push({ start: x + padding.length, end: x + padding.length + control.label.length, action: control.action });
+			row += "\x1b[0m" + buttonStyle(label, state.plain) + "\x1b[0m";
+			x += label.length;
+			if (index < controls.length - 1) {
+				row += capSlice(x, gap);
+				x += gap;
+			}
+		}
+		lines[0] = row + capSlice(x, width - x);
 		return lines;
 	};
 	block.handleMouse = event => {

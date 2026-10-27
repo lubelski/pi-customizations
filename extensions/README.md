@@ -14,7 +14,7 @@ for helper in "$HOME/dev/pi-customizations/lib/"*.ts; do
 done
 ```
 
-After installing or updating an extension, run `/reload` inside Pi.
+After updating this checkout, rerun both link loops before running `/reload` inside Pi. New helpers need their own links: Pi resolves relative imports from the installed extension path, not the symlink target. A missing helper can prevent startup (for example, `assistant-background.ts` requires `lib/message-controls.ts`).
 
 ## `assistant-background.ts`
 
