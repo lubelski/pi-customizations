@@ -17,13 +17,11 @@ import {
 	type ThinkingLayout,
 } from "../lib/transcript-layout.ts";
 
-import { attachMessageControls, codeBlocks, type MessageControlState } from "../lib/message-controls.ts";
+import { attachMessageRendering, codeBlocks, type MessageControlState } from "../lib/message-controls.ts";
 
 const controls = new WeakSet<object>();
-const states = new WeakMap<object, MessageControlState>();
-let latestState: MessageControlState | undefined;
+const state: MessageControlState = { plain: false };
 let latestSource = "";
-let notify: (message: string, error?: boolean) => void = () => {};
 
 const ORIGINAL_RENDER = Symbol.for("will.pi.assistant-background.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.assistant-background.wrapped-render");
@@ -87,15 +85,10 @@ function styleTextBlocks(component: AssistantInternals): void {
 		// does not expose a public assistant-message renderer API.
 		if (!(child instanceof Markdown)) continue;
 
-		let state = states.get(component);
-		if (!state) states.set(component, state = { plain: false });
-		latestState = state;
 		latestSource = (child as unknown as { text: string }).text;
 		if (!controls.has(child)) {
-			attachMessageControls(child as unknown as Parameters<typeof attachMessageControls>[0], state, (message, error) => notify(message, error), (text, plain) => {
-				const label = activeTheme ? activeTheme.fg("mdCodeBlockBorder", text) : text;
-				return plain ? label : assistantBackground(label, false);
-			});
+			attachMessageRendering(child as unknown as Parameters<typeof attachMessageRendering>[0], state,
+				text => activeTheme ? activeTheme.fg("mdCodeBlockBorder", text) : text);
 			controls.add(child);
 		}
 		const markdown = child as unknown as MarkdownInternals;
@@ -131,10 +124,10 @@ function patchAssistantRendering(): void {
 export default function (pi: ExtensionAPI): void {
 	patchAssistantRendering();
 	pi.registerCommand("plain-text", {
-		description: "Toggle plain text for the last rendered assistant message",
+		description: "Toggle original Markdown for all assistant messages",
 		handler: async (_args, ctx) => {
-			if (latestState) latestState.plain = !latestState.plain;
-			ctx.ui.notify(latestState ? (latestState.plain ? "Plain text" : "Formatted") : "No assistant message yet", "info");
+			state.plain = !state.plain;
+			ctx.ui.notify(state.plain ? "All assistant messages: plain text" : "All assistant messages: formatted", "info");
 		},
 	});
 
@@ -152,9 +145,8 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
-		latestState = undefined;
+		state.plain = false;
 		latestSource = "";
-		notify = (message, error) => ctx.ui.notify(message, error ? "error" : "info");
 		activeTheme = ctx.ui.theme;
 		ctx.ui.setStatus("pi-customization:assistant-background", "assistant-bg");
 	});

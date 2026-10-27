@@ -16,9 +16,9 @@ See [`extensions/README.md`](extensions/README.md) for details and installation.
 
 ## Copy-friendly assistant messages
 
-Assistant text panels have a small upper-right `‹` trigger in their top border row. Click it to reveal `fmt` and `copy` inline; `›` hides them again. Controls keep full-height background padding, separated by two fractional-height cap characters. The controls start collapsed and preserve their state during message updates. `fmt` toggles between styled Markdown and the original Markdown without panel edges or code-bracket decoration. `copy` is available on every assistant text block and copies its complete source Markdown, including prose and code, rather than decorated terminal rows.
+Assistant panels have no visible controls. `/plain-text` toggles all assistant messages between styled Markdown and original Markdown, including new messages and streaming updates. Plain mode removes panel fill and side borders, replaces the top and bottom caps with simple full-width dividers, and shows literal code fences rather than decorated code blocks. Content keeps its existing wrapping width and shifts left by one column; Markdown itself can change the message height. The mode resets to formatted on session start or reload.
 
-Clicks require fullscreen mode. `/plain-text` targets the last rendered assistant text block as a keyboard fallback. Pi's built-in `/copy` copies the last assistant message. `/copy-code` remains available to copy only that block's code snippets, joined with a blank line. Controls hide at narrow widths rather than overlap content. Body clicks, double-clicks, and drags remain available for selection. This does not change tool output or user-message rendering.
+Pi's built-in `/copy` copies the last assistant message. `/copy-code` copies the last rendered assistant text block's code snippets, joined with a blank line. Native mouse selection remains untouched. This does not change tool output or user-message rendering.
 
 ## Included theme
 
