@@ -1,5 +1,6 @@
 import {
 	AssistantMessageComponent,
+	copyToClipboard,
 	type ExtensionAPI,
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
@@ -18,6 +19,14 @@ import {
 	stabilizeThinkingToolSpacing,
 	type ThinkingLayout,
 } from "../lib/transcript-layout.ts";
+
+import { attachMessageControls, codeBlocks, type MessageControlState } from "../lib/message-controls.ts";
+
+const controls = new WeakSet<object>();
+const states = new WeakMap<object, MessageControlState>();
+let latestState: MessageControlState | undefined;
+let latestSource = "";
+let notify: (message: string, error?: boolean) => void = () => {};
 
 const ORIGINAL_RENDER = Symbol.for("will.pi.assistant-background.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.assistant-background.wrapped-render");
@@ -81,6 +90,14 @@ function styleTextBlocks(component: AssistantInternals): void {
 		// does not expose a public assistant-message renderer API.
 		if (!(child instanceof Markdown)) continue;
 
+		if (!controls.has(child)) {
+			let state = states.get(component);
+			if (!state) states.set(component, state = { plain: false });
+			latestState = state;
+			latestSource = (child as unknown as { text: string }).text;
+			attachMessageControls(child as unknown as Parameters<typeof attachMessageControls>[0], state, (message, error) => notify(message, error));
+			controls.add(child);
+		}
 		const markdown = child as unknown as MarkdownInternals;
 		if (markdown[APPLIED_STYLE] === assistantBackground && markdown.paddingY === 1) continue;
 		markdown.defaultTextStyle = {
@@ -114,9 +131,31 @@ function patchAssistantRendering(): void {
 
 export default function (pi: ExtensionAPI): void {
 	patchAssistantRendering();
+	pi.registerCommand("plain-text", {
+		description: "Toggle plain text for the last rendered assistant message",
+		handler: async (_args, ctx) => {
+			if (latestState) latestState.plain = !latestState.plain;
+			ctx.ui.notify(latestState ? (latestState.plain ? "Plain text" : "Formatted") : "No assistant message yet", "info");
+		},
+	});
+
+	pi.registerCommand("copy-code", {
+		description: "Copy code from the last rendered assistant text block",
+		handler: async (_args, ctx) => {
+			const blocks = codeBlocks(latestSource);
+			if (!blocks.length) { ctx.ui.notify("No code in the last assistant text block", "info"); return; }
+			try {
+				await copyToClipboard(blocks.join("\n\n"));
+				ctx.ui.notify("Code copied", "info");
+			} catch { ctx.ui.notify("Could not copy code", "error"); }
+		},
+	});
 
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
+		latestState = undefined;
+		latestSource = "";
+		notify = (message, error) => ctx.ui.notify(message, error ? "error" : "info");
 		activeTheme = ctx.ui.theme;
 		ctx.ui.setStatus("pi-customization:assistant-background", "assistant-bg");
 	});

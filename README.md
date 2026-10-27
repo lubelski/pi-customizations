@@ -14,6 +14,12 @@ Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
 
+## Copy-friendly assistant messages
+
+Assistant text panels have upper-right `[plain text]` and `[copy code]` controls in their top padding/border row. Plain text shows the original Markdown without panel edges or code-bracket decoration; `[formatted]` restores the styled view. Copy uses parsed source code, not terminal rows. With multiple blocks, `[copy all code]` joins them with a blank line.
+
+Clicks require fullscreen mode. `/plain-text` and `/copy-code` target the last rendered assistant text block as keyboard fallbacks. Controls hide at narrow widths rather than overlap content. Body clicks, double-clicks, and drags remain available for selection. This does not change tool output or user-message rendering.
+
 ## Included theme
 
 - [`turquoise`](themes/turquoise.json) — a dark palette that replaces Pi's violet/pink accent family with turquoise and teal
