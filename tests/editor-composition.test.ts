@@ -106,17 +106,17 @@ for (const extensions of [[stableInput]]) {
 			}
 			let footerLines = footer.render(100).map(stripTerminalSequences);
 			assert.equal(footerLines.length, 7);
-			assert.equal(footerLines[6], "E: 1x MCP servers, 2x extensions (alt+i to expand)");
+			assert.equal(footerLines[6], "E: 1x MCP servers, 2x extensions (/inventory to expand)");
 			assert.equal(footerLines[5].slice(51).trim(), reload === 0 ? "" : "SPM-123 · Storybook");
 			assert.ok(footerLines.slice(3, 5).every((line) => line.slice(51).trim() === ""));
 			for (const [index, prefix] of ["F: /project", "B: main", "WT: -", "U: ", "C: ", "M: "].entries()) {
 				assert.ok(footerLines[index].startsWith(prefix));
 			}
 			assert.equal(visibleWidth(footerLines[5]), 100);
-			await inventoryShortcut.handler();
+			await inventoryCommand.handler();
 			const expanded = footer.render(100).map(stripTerminalSequences);
 			assert.equal(expanded.length, 10);
-			assert.ok(expanded[6].endsWith("(alt+i to collapse)"));
+			assert.ok(expanded[6].endsWith("(/inventory to collapse)"));
 			assert.deepEqual(expanded.slice(7), ["  MCP: linear", "  EXT: pi-agent-journal", "  EXT: pi-web-access"]);
 			for (const width of [0, 1, 12, 40, 100]) {
 				for (const line of footer.render(width)) assert.ok(visibleWidth(line) <= width);

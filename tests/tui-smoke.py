@@ -74,21 +74,21 @@ def smoke(mode, theme):
             raise AssertionError(f"Timed out waiting for {text!r}")
 
         try:
-            expect("alt+i to expand")  # Proves the collapsed footer rendered.
+            expect("/inventory to expand")  # Proves the collapsed footer rendered.
             start = len(output)
-            os.write(master, b"\x1bi")  # Alt+I expands the inventory.
-            expect("alt+i to collapse", start)
+            os.write(master, b"/inventory\r")  # Command expands the inventory.
+            expect("/inventory to collapse", start)
             expect("assistant-bg")
             expect("half-bleed")
             expect("recessed-tools")
             start = len(output)
-            os.write(master, b"\x1bi")
-            expect("alt+i to expand", start)
+            os.write(master, b"/inventory\r")
+            expect("/inventory to expand", start)
             for _ in range(2):
                 start = len(output)
                 os.write(master, b"/reload\r")
                 expect("Reloaded keybindings", start)
-                expect("alt+i to expand", start)
+                expect("/inventory to expand", start)
             # Trigger autocomplete and render at narrow and wide sizes.
             start = len(output)
             os.write(master, b"/ren")

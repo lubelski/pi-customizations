@@ -295,7 +295,7 @@ function createFooter(
 				...(adapterMcpStatus ? [`  MCP status: ${adapterMcpStatus}`] : []),
 				...otherStatuses.map((status) => `  Status: ${status}`),
 			];
-			const summary = `E: ${servers.length}x MCP servers, ${customizationNames.length}x extensions (alt+i to ${state.inventoryExpanded ? "collapse" : "expand"})`;
+			const summary = `E: ${servers.length}x MCP servers, ${customizationNames.length}x extensions (/inventory to ${state.inventoryExpanded ? "collapse" : "expand"})`;
 			const inventoryRows = state.inventoryExpanded
 				? (inventory.length ? inventory : ["  No discoverable MCP servers or extensions."])
 					.flatMap((line) => width > 0 ? wrapTextWithAnsi(theme.fg("dim", line), width) : [""])
