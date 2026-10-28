@@ -2,6 +2,7 @@ import { copyToClipboard, type ExtensionAPI } from "@earendil-works/pi-coding-ag
 import { Markdown, stripTerminalSequences, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 import { codeCopyMarker, installCodeCopy } from "../lib/code-copy.ts";
+import { createCopyFeedback } from "../lib/copy-feedback.ts";
 
 const ORIGINAL = Symbol.for("will.pi.code-brackets.original-token");
 const WRAPPED = Symbol.for("will.pi.code-brackets.wrapped-token");
@@ -47,12 +48,27 @@ export default function (pi: ExtensionAPI): void {
 	Object.defineProperty(target, ORIGINAL, { value: original, configurable: true });
 	Object.defineProperty(target, WRAPPED, { value: wrapper, configurable: true });
 	target.renderToken = wrapper;
-	let notify: (message: string, error?: boolean) => void = () => {};
-	installCodeCopy(target as unknown as Parameters<typeof installCodeCopy>[0], copyToClipboard,
-		(message, error) => notify(message, error));
-	pi.on("session_shutdown", () => { notify = () => {}; });
+	let feedback: ReturnType<typeof createCopyFeedback> | undefined;
+	let lifecycle = 0;
+	installCodeCopy(target as unknown as Parameters<typeof installCodeCopy>[0], async text => {
+		const current = feedback;
+		const generation = lifecycle;
+		try {
+			await copyToClipboard(text);
+			if (generation === lifecycle) current?.show("Copied");
+		} catch {
+			if (generation === lifecycle) current?.show("Could not copy code", true);
+		}
+	}, () => {});
+	pi.on("session_shutdown", () => {
+		lifecycle++;
+		feedback?.dispose();
+		feedback = undefined;
+	});
 	pi.on("session_start", (_event, ctx) => {
-		if (ctx.mode === "tui") notify = (message, error) => ctx.ui.notify(message, error ? "error" : "info");
+		lifecycle++;
+		feedback?.dispose();
+		feedback = ctx.mode === "tui" ? createCopyFeedback(ctx.ui) : undefined;
 		if (ctx.mode === "tui") ctx.ui.setStatus("pi-customization:code-brackets", "code-brackets");
 	});
 }
