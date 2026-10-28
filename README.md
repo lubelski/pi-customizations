@@ -2,17 +2,11 @@
 
 Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
-## Screenshots
+## Screenshot
 
-Click either screenshot to view it at full resolution.
+[![Customized Pi with chat-style formatting, fancy code blocks, and minimized tool calls](docs/images/pi-customized.png)](docs/images/pi-customized.png)
 
-### Chat-style formatting and fancy code blocks
-
-[![Chat-style message panels and fancy code blocks](docs/images/pi-customized-code.png)](docs/images/pi-customized-code.png)
-
-### Minimized tool calls
-
-[![Minimized tool calls keep the conversation in focus](docs/images/pi-customized-tools.png)](docs/images/pi-customized-tools.png)
+*Chat-style formatting, fancy code blocks, and minimized tool calls. Click the screenshot to view it at full resolution.*
 
 ## Included extensions
 
