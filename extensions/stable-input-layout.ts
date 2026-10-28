@@ -99,8 +99,22 @@ export function linkedWorktree(cwd: string): string | undefined {
 	}
 }
 
+/** Git lists the primary checkout first; a bare repository has no default checkout. */
+export function primaryCheckout(cwd: string): string | undefined {
+	try {
+		const output = execFileSync("git", ["worktree", "list", "--porcelain", "-z"], {
+			cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1000,
+		});
+		const fields = output.split("\0\0", 1)[0].split("\0");
+		const path = fields[0]?.startsWith("worktree ") ? fields[0].slice(9) : undefined;
+		return path && !fields.includes("bare") ? path : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 const WORKSPACE_ENTRY_TYPE = "pi-customization:workspace";
-type Workspace = { path: string; branch?: string; worktree?: string };
+type Workspace = { path: string; branch?: string; worktree?: string; primaryCheckout?: string };
 
 function inspectWorkspace(path: string): Workspace {
 	if (!isAbsolute(path) || !statSync(path).isDirectory()) {
@@ -113,7 +127,7 @@ function inspectWorkspace(path: string): Workspace {
 			cwd: path, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1000,
 		}).trim();
 	} catch { /* Detached HEAD and non-repositories have no branch name. */ }
-	return { path, branch, worktree: linkedWorktree(path) };
+	return { path, branch, worktree: linkedWorktree(path), primaryCheckout: primaryCheckout(path) };
 }
 
 function restoreWorkspace(entries: readonly SessionEntry[]): Workspace | undefined {
@@ -241,6 +255,7 @@ function createFooter(
 	getExtensionNames: (statuses: ReadonlyMap<string, string>) => string[],
 ) {
 	const worktree = linkedWorktree(ctx.sessionManager.getCwd());
+	const defaultCheckout = primaryCheckout(ctx.sessionManager.getCwd());
 	const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 
 	return {
@@ -251,7 +266,9 @@ function createFooter(
 
 			const workspace = getWorkspace();
 			const branch = workspace ? workspace.branch : footerData.getGitBranch();
-			const folder = sanitize(formatCwd(workspace?.path ?? ctx.sessionManager.getCwd()));
+			const folder = sanitize(formatCwd(workspace
+				? workspace.primaryCheckout ?? workspace.path
+				: defaultCheckout ?? ctx.sessionManager.getCwd()));
 			const activeWorktree = workspace ? workspace.worktree : worktree;
 
 			const entries = ctx.sessionManager.getEntries();
@@ -310,7 +327,7 @@ function createFooter(
 			return [
 				splitLine(theme, theme.fg("dim", `F: ${folder}`), queueRows[0], width),
 				splitLine(theme, theme.fg("dim", `B: ${branch ? sanitize(branch) : "-"}`), queueRows[1], width),
-				splitLine(theme, theme.fg("dim", `WT: ${activeWorktree ? sanitize(formatCwd(activeWorktree)) : "-"}`), queueRows[2], width),
+				splitLine(theme, theme.fg("dim", `W: ${activeWorktree ? sanitize(formatCwd(activeWorktree)) : "-"}`), queueRows[2], width),
 				splitLine(theme, theme.fg("dim", `U: ${usageParts.join(" · ") || "—"}`), linkRows[0], width),
 				splitLine(theme, theme.fg("dim", `C: ${contextValue}`), linkRows[1], width),
 				splitLine(theme, theme.fg("dim", `M: ${modelValue}`), linkRows[2], width),
@@ -349,7 +366,7 @@ export default function (pi: ExtensionAPI): void {
 	pi.registerTool(defineTool({
 		name: "set_task_workspace",
 		label: "Set task workspace",
-		description: "Set the task directory displayed by the footer's F, B, and WT rows. Use an existing absolute directory, or null to return to the session directory. Display only: does not change tool cwd or file path resolution.",
+		description: "Set the task directory used by the footer: F shows the primary checkout when available (otherwise the directory), B the active branch, and W the linked worktree. Use an existing absolute directory, or null to return to the session directory. Display only: does not change tool cwd or file path resolution.",
 		promptSnippet: "Keep the footer's task workspace current when working outside the session directory.",
 		promptGuidelines: ["Call set_task_workspace after claiming or switching to a worktree or another task directory. This only updates the display; continue using explicit paths for tools. Clear it with null when returning to the session directory. Do not switch it for incidental reads or a subagent's separate workspace."],
 		parameters: Type.Object({ path: Type.Union([Type.String({ minLength: 1 }), Type.Null()]) }, { additionalProperties: false }),

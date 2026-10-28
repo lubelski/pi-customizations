@@ -109,7 +109,7 @@ for (const extensions of [[stableInput]]) {
 			assert.equal(footerLines[6], "E: 1x MCP servers, 2x extensions (/inventory to expand)");
 			assert.equal(footerLines[5].slice(51).trim(), reload === 0 ? "" : "SPM-123 · Storybook");
 			assert.ok(footerLines.slice(3, 5).every((line) => line.slice(51).trim() === ""));
-			for (const [index, prefix] of ["F: /project", "B: main", "WT: -", "U: ", "C: ", "M: "].entries()) {
+			for (const [index, prefix] of ["F: /project", "B: main", "W: -", "U: ", "C: ", "M: "].entries()) {
 				assert.ok(footerLines[index].startsWith(prefix));
 			}
 			assert.equal(visibleWidth(footerLines[5]), 100);
