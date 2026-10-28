@@ -5,6 +5,7 @@ import { shapePanelCaps } from "./transcript-layout.ts";
 export type MessageControlState = { plain: boolean };
 type MarkdownBlock = {
 	text: string;
+	[key: symbol]: unknown;
 	render(width: number): string[];
 };
 
@@ -21,6 +22,7 @@ export function attachMessageRendering(block: MarkdownBlock, state: MessageContr
 	dividerStyle: (text: string) => string = text => text): void {
 	const render = block.render.bind(block);
 	block.render = width => {
+		block[Symbol.for("will.pi.plain-markdown")] = state.plain;
 		if (width < 1) return [];
 		if (!state.plain) return shapePanelCaps(render(width).slice(), stripTerminalSequences, visibleWidth);
 		const divider = dividerStyle("─".repeat(width));
