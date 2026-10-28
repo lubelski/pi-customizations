@@ -35,6 +35,8 @@ typescript
 
 Language labels sit flush left without a top elbow or trailing rule. The lower arm is always `└──`, independent of the language or code width. Unlabeled blocks use `┌──` / `└──` arms. Long code lines wrap with a continuing left rule; labels shorten on narrow terminals. Inline code and indented (unfenced) code retain native rendering. This applies to fenced blocks rendered through Pi's Markdown component, including nested lists/quotes; source messages and model context are unchanged.
 
+In fullscreen mode, click any vertical `│` cell to copy the entire block’s original code, including indentation and unwrapped lines. A notification confirms copying or reports clipboard failure. Labels and lower arms are not click targets; code selection and scrolling remain native. Plain-text mode disables these hit areas. `/copy-code` remains the keyboard alternative.
+
 Pi has no public fence-layout setting, so this uses a guarded, reload-safe token-renderer patch. Unsupported token layouts fall back to Pi's rendering.
 
 ## `half-bleed.ts`

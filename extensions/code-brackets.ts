@@ -1,5 +1,7 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { copyToClipboard, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Markdown, stripTerminalSequences, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+
+import { codeCopyMarker, installCodeCopy } from "../lib/code-copy.ts";
 
 const ORIGINAL = Symbol.for("will.pi.code-brackets.original-token");
 const WRAPPED = Symbol.for("will.pi.code-brackets.wrapped-token");
@@ -17,6 +19,7 @@ export default function (pi: ExtensionAPI): void {
 	const original = target.renderToken === target[WRAPPED]
 		? target[ORIGINAL] as MarkdownInternals["renderToken"] : target.renderToken;
 	const wrapper: MarkdownInternals["renderToken"] = function (this: MarkdownInternals, token, width, nextType, style) {
+		const marker = token.type === "code" ? codeCopyMarker(this) : "";
 		const lines = original.call(this, token, width, nextType, style);
 		if (token.type !== "code" || !/^\s*(?:`{3,}|~{3,})/.test(token.raw ?? "") || width < 1) return lines;
 		const trailingSpace = nextType && nextType !== "space" ? 1 : 0;
@@ -34,7 +37,7 @@ export default function (pi: ExtensionAPI): void {
 		for (const line of lines.slice(1, closing)) {
 			const code = line.startsWith(indent) ? line.slice(indent.length) : line;
 			for (const wrapped of wrapTextWithAnsi(code, Math.max(1, width - prefix.length))) {
-				result.push(border(prefix) + wrapped);
+				result.push((prefix ? marker : "") + border(prefix) + wrapped);
 			}
 		}
 		result.push(border(`└${"─".repeat(Math.max(0, bottomWidth - 1))}`));
@@ -44,7 +47,12 @@ export default function (pi: ExtensionAPI): void {
 	Object.defineProperty(target, ORIGINAL, { value: original, configurable: true });
 	Object.defineProperty(target, WRAPPED, { value: wrapper, configurable: true });
 	target.renderToken = wrapper;
+	let notify: (message: string, error?: boolean) => void = () => {};
+	installCodeCopy(target as unknown as Parameters<typeof installCodeCopy>[0], copyToClipboard,
+		(message, error) => notify(message, error));
+	pi.on("session_shutdown", () => { notify = () => {}; });
 	pi.on("session_start", (_event, ctx) => {
+		if (ctx.mode === "tui") notify = (message, error) => ctx.ui.notify(message, error ? "error" : "info");
 		if (ctx.mode === "tui") ctx.ui.setStatus("pi-customization:code-brackets", "code-brackets");
 	});
 }

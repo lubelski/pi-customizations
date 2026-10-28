@@ -26,7 +26,7 @@ See [`extensions/README.md`](extensions/README.md) for details and installation.
 
 Assistant panels have no visible controls. `/plain-text` toggles all assistant messages between styled Markdown and original Markdown, including new messages and streaming updates. Plain mode removes panel fill and side borders, replaces the top and bottom caps with simple full-width dividers, and shows literal code fences rather than decorated code blocks. Content keeps its existing wrapping width and shifts left by one column; Markdown itself can change the message height. The mode resets to formatted on session start or reload.
 
-Pi's built-in `/copy` copies the last assistant message. `/copy-code` copies the last rendered assistant text block's code snippets, joined with a blank line. Native mouse selection remains untouched. This does not change tool output or user-message rendering.
+Pi's built-in `/copy` copies the last assistant message. `/copy-code` copies the last rendered assistant text block's code snippets, joined with a blank line. In fullscreen mode, clicking a code block’s vertical `│` copies that whole block (without fences or the language label) and shows “Copied”. Code-body clicks, drags, and scrolling retain native behavior. Divider copying is disabled in plain-text mode; regular terminal mode uses the copy commands instead. This does not change tool output or user-message rendering.
 
 ## Included theme
 
