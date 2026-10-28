@@ -4,21 +4,16 @@ Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
 ## Before and after
 
-The same demo conversation in Pi 1.2.0, at the same terminal size.
+The same conversation with regular Pi rendering and with our customizations. Both use turquoise accents; the customizations add shaped message panels, code brackets, quieter tools, and a fixed session title and footer.
 
-### Stock Pi
+Click any screenshot to view it at full resolution.
 
-Built-in dark theme, without extensions.
-
-![Stock Pi with a user prompt, tool call, and syntax-highlighted code](docs/images/pi-stock.png)
-
-### Customized Pi
-
-Turquoise accents, shaped message panels, quieter tools, code brackets, and a fixed session title and footer.
-
-![Customized Pi showing turquoise accents, gray assistant panels, compact tools, and the session footer](docs/images/pi-customized.png)
-
-Captured from the real CLI in fullscreen mode using an isolated, scripted demo session—not a live model response. [Capture details](docs/images/README.md).
+| Regular Pi | Customized Pi |
+| --- | --- |
+| **Code and prose** | **Code and prose** |
+| [![Regular Pi showing a TypeScript helper and a short poem](docs/images/pi-regular-code.png)](docs/images/pi-regular-code.png) | [![Customized Pi showing the same helper and poem in shaped panels with code brackets](docs/images/pi-customized-code.png)](docs/images/pi-customized-code.png) |
+| **Tool output** | **Tool output** |
+| [![Regular Pi with website tool output filling the conversation](docs/images/pi-regular-tools.png)](docs/images/pi-regular-tools.png) | [![Customized Pi with the same website fetch reduced to a compact tool row](docs/images/pi-customized-tools.png)](docs/images/pi-customized-tools.png) |
 
 ## Included extensions
 
