@@ -2,6 +2,14 @@
 
 Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
+Pi’s strength is that it’s designed to be uniquely yours. Like any of these ideas? Ask Pi to implement them in your own setup.
+
+## Screenshot
+
+[![Customized Pi with chat-style formatting, fancy code blocks, and minimized tool calls](docs/images/pi-customized.png)](docs/images/pi-customized.png)
+
+*Chat-style formatting, fancy code blocks, and minimized tool calls. Click the screenshot to view it at full resolution.*
+
 ## Included extensions
 
 - [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose a shaped neutral-gray panel
