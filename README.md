@@ -2,6 +2,24 @@
 
 Personal extensions and themes for [Pi](https://github.com/earendil-works/pi).
 
+## Before and after
+
+The same demo conversation in Pi 1.2.0, at the same terminal size.
+
+### Stock Pi
+
+Built-in dark theme, without extensions.
+
+![Stock Pi with a user prompt, tool call, and syntax-highlighted code](docs/images/pi-stock.png)
+
+### Customized Pi
+
+Turquoise accents, shaped message panels, quieter tools, code brackets, and a fixed session title and footer.
+
+![Customized Pi showing turquoise accents, gray assistant panels, compact tools, and the session footer](docs/images/pi-customized.png)
+
+Captured from the real CLI in fullscreen mode using an isolated, scripted demo session—not a live model response. [Capture details](docs/images/README.md).
+
 ## Included extensions
 
 - [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose a shaped neutral-gray panel
