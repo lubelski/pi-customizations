@@ -19,8 +19,9 @@ test("task workspace updates all location rows, persists, refreshes, and resets 
 		git("-C", main, "worktree", "add", "-b", "task", linked);
 		const entries: any[] = [];
 		let footer: any;
+		let sessionCwd = main;
 		const ctx = {
-			mode: "tui", sessionManager: { getCwd: () => main, getBranch: () => entries, getEntries: () => [] },
+			mode: "tui", sessionManager: { getCwd: () => sessionCwd, getBranch: () => entries, getEntries: () => [] },
 			getContextUsage: () => undefined, hasPendingMessages: () => false, isIdle: () => true,
 			ui: {
 				getEditorComponent() {}, setEditorComponent() {},
@@ -46,14 +47,14 @@ test("task workspace updates all location rows, persists, refreshes, and resets 
 		}
 		const rows = () => footer.render(500).slice(0, 3).map((s: string) => tuiModule.stripTerminalSequences(s).slice(0, 249).trim());
 		let runtime = boot();
-		assert.deepEqual(rows(), [`F: ${main}`, "B: launch-branch", "WT: -"]);
+		assert.deepEqual(rows(), [`F: ${main}`, "B: launch-branch", "W: -"]);
 		await runtime.set(linked);
-		assert.deepEqual(rows(), [`F: ${linked}`, "B: task", `WT: ${linked}`]);
+		assert.deepEqual(rows(), [`F: ${main}`, "B: task", `W: ${linked}`]);
 		await assert.rejects(runtime.set("relative"));
 		await assert.rejects(runtime.set(join(temp, "missing")));
 		assert.equal(rows()[1], "B: task");
 		runtime = boot();
-		assert.equal(rows()[2], `WT: ${linked}`);
+		assert.deepEqual(rows(), [`F: ${main}`, "B: task", `W: ${linked}`]);
 		git("-C", linked, "checkout", "-b", "renamed");
 		runtime.end();
 		assert.equal(rows()[1], "B: renamed");
@@ -61,10 +62,14 @@ test("task workspace updates all location rows, persists, refreshes, and resets 
 		runtime.end();
 		assert.equal(rows()[1], "B: -");
 		await runtime.set(temp);
-		assert.deepEqual(rows(), [`F: ${temp}`, "B: -", "WT: -"]);
+		assert.deepEqual(rows(), [`F: ${temp}`, "B: -", "W: -"]);
 		await runtime.set(null);
 		runtime = boot();
 		assert.equal(rows()[1], "B: launch-branch");
+		sessionCwd = linked;
+		runtime = boot();
+		assert.deepEqual(rows(), [`F: ${main}`, "B: launch-branch", `W: ${linked}`]);
+		sessionCwd = main;
 		await runtime.set(linked);
 		git("-C", main, "worktree", "remove", linked);
 		runtime = boot();
