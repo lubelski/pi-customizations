@@ -95,6 +95,12 @@ This extension is adapted from [`@moguw/pi-session-rename`](https://github.com/M
 pi remove npm:@moguw/pi-session-rename
 ```
 
+## `subagent-divider.ts`
+
+Adds a horizontal rule immediately above the `pi-subagents` async status widget, using the same theme-aware divider style as the header and editor. The rule is removed with the widget; other widgets and the below-editor area are unchanged.
+
+Pi has no public widget-decoration API, so this patches the private `InteractiveMode.renderWidgetContainer` method and targets the `subagent-async` widget key. It preserves the widget component and its input/disposal hooks, avoids stacking patches on reload, and restores the original method on shutdown. Changes to Pi's widget layout or the package's widget key may require updating this extension.
+
 ## `stable-input-layout.ts`
 
 Keeps a seven-row collapsed pane below the editor so the input and transcript remain anchored:
